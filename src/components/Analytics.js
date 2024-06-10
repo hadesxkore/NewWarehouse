@@ -23,15 +23,18 @@ function Analytics() {
         const unsubscribeUserRegistrations = firestore.collection('users').onSnapshot(snapshot => {
             const userRegistrations = {};
             snapshot.forEach(doc => {
-                const registrationDate = DateTime.fromJSDate(doc.data().registrationDate.toDate(), { zone: 'Asia/Manila' }).toFormat('yyyy-MM-dd');
-                userRegistrations[registrationDate] = (userRegistrations[registrationDate] || 0) + 1;
+                const registrationDate = doc.data().registrationDate?.toDate(); // Check if registrationDate exists
+                if (registrationDate) {
+                    const formattedDate = DateTime.fromJSDate(registrationDate, { zone: 'Asia/Manila' }).toFormat('yyyy-MM-dd');
+                    userRegistrations[formattedDate] = (userRegistrations[formattedDate] || 0) + 1;
+                }
             });
             setUserRegistrationsData(userRegistrations);
             setUserCount(snapshot.size);
         }, error => {
             console.error('Error fetching user registrations data:', error);
         });
-
+        
         const unsubscribeWarehouseStatus = firestore.collection('warehouses').onSnapshot(snapshot => {
             const warehouseData = snapshot.docs.map(doc => doc.data());
             const statusCounts = warehouseData.reduce((acc, warehouse) => {
