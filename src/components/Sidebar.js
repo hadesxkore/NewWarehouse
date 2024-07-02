@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 function Sidebar() {
     return (
-        <div className="flex flex-col h-screen w-64 bg-gray-800 text-white">
+        <div className="flex flex-col h-full min-h-screen w-64 bg-gray-800 text-white" style={{ paddingBottom: 'calc(140vh - 64px)' }}>
             <div className="p-4">
                 <h2 className="text-lg font-semibold mb-4">Menu</h2>
                 <ul className="space-y-2">

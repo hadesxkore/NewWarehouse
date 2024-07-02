@@ -199,7 +199,29 @@
     font-size: 28px;
     font-weight: bold;
   }
-  
+/* Define keyframes for slower pumping animation */
+@keyframes pump {
+  0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 rgba(0, 0, 0, 0.3);
+  }
+  50% {
+      transform: scale(1.1);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  }
+  100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Apply slower animation to icon */
+.pumping-icon {
+  animation: pump 1.5s infinite; /* Adjust animation duration as needed */
+}
+
+
+
   .close:hover,
   .close:focus {
     color: black;
@@ -228,4 +250,16 @@
     margin: 10px;
     width: calc(33% - 20px);
   }
+  @keyframes pump {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+.pumping-animation {
+    animation: pump 1s infinite;
+}
   

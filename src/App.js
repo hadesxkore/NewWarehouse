@@ -19,7 +19,7 @@ import SuperadminLogin from './components/SuperadminLogin';
 import ChatPage from './components/ChatPage';
 import DetailedView from './components/DetailedView';
 import Footer from './components/Footer';
-import { auth } from './firebase';
+import { auth, firestore } from './firebase';
 import Navigation from './components/Navigation';
 import RentalAgreements from './components/RentalAgreements';
 import CreateAgreement from './components/CreateAgreement';
@@ -31,8 +31,20 @@ function App() {
     const [user, setUser] = useState(null);
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
-            setUser(user);
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Fetch user data
+                const userRef = firestore.collection('superadmins').doc(user.uid);
+                const userSnapshot = await userRef.get();
+                if (userSnapshot.exists) {
+                    const userData = userSnapshot.data();
+                    setUser({ ...user, userData });
+                } else {
+                    setUser(user);
+                }
+            } else {
+                setUser(null);
+            }
             setLoading(false);
         });
 
@@ -61,7 +73,7 @@ function App() {
                         <Route path="/Analytics" element={<Analytics />} />
                         <Route path="/superadmin-registration" element={<SuperadminRegistration />} />
                         <Route path="/WarehouseCard" element={<WarehouseCard />} />
-                        {user ? (
+                        {user && user.userData && user.userData.role === 'admin' ? (
                             <Route path="/superadmin" element={<Superadmin />} />
                         ) : (
                             <Route path="/superadmin" element={<SuperadminLogin />} />

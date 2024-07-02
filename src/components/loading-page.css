@@ -45,7 +45,7 @@
 .logo-animation {
     opacity: 0;
     animation: fadeInDown 2s ease-in-out forwards;
-    margin-bottom: -190px;
+   
 }
 
 .text-animation {

@@ -1,46 +1,55 @@
 import React, { useState } from 'react';
-import { Navigate, Link } from 'react-router-dom'; // Import Link from react-router-dom
-import { auth, firestore } from '../firebase'; // Import Firebase auth and Firestore
-import './SuperadminLogin.css'; // Import custom styles
+import { useNavigate } from 'react-router-dom'; // Import useNavigate hook
+import { auth, firestore } from '../firebase';
+import error1 from '../images/error1.png';
+import './SuperadminLogin.css';
 
 function SuperadminLogin() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [loggedIn, setLoggedIn] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [modalMessage, setModalMessage] = useState(''); // State to hold modal message
+    const navigate = useNavigate(); // Initialize useNavigate
 
-    const handleEmailChange = (e) => {
-        setEmail(e.target.value);
-    };
-
-    const handlePasswordChange = (e) => {
-        setPassword(e.target.value);
-    };
+    const handleEmailChange = (e) => setEmail(e.target.value);
+    const handlePasswordChange = (e) => setPassword(e.target.value);
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        e.preventDefault(); // Prevent default form submission
+
         try {
             // Sign in with email and password
-            await auth.signInWithEmailAndPassword(email, password);
+            const { user } = await auth.signInWithEmailAndPassword(email, password);
+
             // Fetch additional details from Firestore
-            const currentUser = auth.currentUser;
-            const userRef = firestore.collection('superadmins').doc(currentUser.uid);
-            const userSnapshot = await userRef.get();
-            if (userSnapshot.exists) {
-                // User is a superadmin, set loggedIn state to true
-                setLoggedIn(true);
+            const superadminRef = firestore.collection('superadmins').doc(user.uid);
+            const superadminSnapshot = await superadminRef.get();
+
+            if (superadminSnapshot.exists) {
+                const superadminData = superadminSnapshot.data();
+                if (superadminData.role === 'admin') {
+                    // Navigate to superadmin page on successful login
+                    console.log('Admin logged in');
+                    navigate('/superadmin');
+                } else {
+                    // User is not authorized as an admin, show modal and log out
+                    setModalMessage('You are not authorized as an admin');
+                    setShowModal(true);
+                    await auth.signOut(); // Log out the user
+                }
             } else {
-                setError('You are not authorized as a superadmin.');
+                // User does not exist in the 'superadmins' collection
+                setModalMessage('You are not authorized as an admin');
+                setShowModal(true);
+                await auth.signOut(); // Log out the user
             }
         } catch (error) {
             setError(error.message);
         }
     };
 
-    if (loggedIn) {
-        // Redirect to Superadmin page upon successful login
-        return <Navigate to="/superadmin" />;
-    }
+    const closeModal = () => setShowModal(false);
 
     return (
         <div className="custom-login-container">
@@ -74,6 +83,27 @@ function SuperadminLogin() {
                     Don't have an account? <a href="/superadmin-registration" className="text-blue-500 hover:underline">Register here</a>
                 </p>
             </div>
+            {showModal && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                    <div className="relative bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+                        <button 
+                            className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
+                            onClick={closeModal}
+                        >
+                            &times;
+                        </button>
+                        <div className="flex items-center justify-center">
+                            
+                                <img src={error1} alt="Error Icon" className="h-14 w-14" />
+                            
+                        </div>
+                        <p className="text-center text-lg font-semibold mt-4">{modalMessage}</p>
+                    </div>
+                </div>
+            )}
+
+
+
         </div>
     );
 }

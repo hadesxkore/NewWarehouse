@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion'; // Import motion from Framer Motion
-import logo from '../images/logo.png';
-import { firestore } from '../firebase'; // Import firestore from Firebase
-import firebase from 'firebase/compat/app'; // Import firebase from Firebase
-
+import logo from '../images/WhereHouseLogo.png';
 import googleIcon from '../images/google.png';
 import backIcon from '../images/back.png';
-import { auth, GoogleAuthProvider } from '../firebase';
+import { auth, firestore } from '../firebase'; // Import auth and firestore from Firebase
+import firebase from 'firebase/compat/app'; // Import firebase from Firebase (ensure it's properly imported)
+
 import './LoginPage.css';
 
 function SignUpPage() {
@@ -34,26 +32,30 @@ function SignUpPage() {
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const signUpWithEmailPassword = async (email, password) => {
     try {
       if (password !== confirmPassword) {
         setErrorMessage('Passwords do not match.');
         return;
       }
-  
+
       setLoading(true);
       const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+
+      // Send email verification
       await userCredential.user.sendEmailVerification();
-  
+
       // Get the current date
       const currentDate = new Date();
-  
-      // Create a user profile document with the registration date
+
+      // Create a user profile document with the registration date and userRole
       await firestore.collection('users').doc(userCredential.user.uid).set({
         email: email,
         registrationDate: currentDate, // Include the registration date
+        userRole: 'user' // Set userRole to 'user' for new registrations
       });
-  
+
       // Navigate to the verification page
       navigate(`/verify?email=${email}`);
     } catch (error) {
@@ -63,18 +65,15 @@ function SignUpPage() {
       setLoading(false);
     }
   };
-  
-
 
   const signInWithGoogle = async () => {
     try {
-      await auth.signInWithRedirect(GoogleAuthProvider);
+      await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     } catch (error) {
       console.error(error.message);
       setErrorMessage(error.message);
     }
   };
-
   const handleSignUp = (e) => {
     e.preventDefault();
     signUpWithEmailPassword(email, password);
@@ -119,7 +118,7 @@ function SignUpPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen" style={{ backgroundColor: '#eeeeee' }}>
-      <div className="logo-container text-center mb-32">
+      <div className="logo-container text-center mb-44">
         <img src={logo} alt="Logo" className="logo" style={{ width: '200px', margin: '0 auto'}} />
       </div>
       <button 
@@ -200,7 +199,7 @@ function SignUpPage() {
             </button>
           </div>
           <p className="text-xs text-gray-700 mb-1 sm:mb-4">
-            By clicking "Create account" above, you acknowledge that you will receive updates from the WhereHouse team and that you have read, understood, and agreed to WhereHouse Library's Terms & Conditions, Licensing Agreement and Privacy Policy.
+            By clicking "Create account" above, you acknowledge that you will receive updates from the WhereHouse team and that you have read, understood            By clicking "Create account" above, you acknowledge that you will receive updates from the WhereHouse team and that you have read, understood, and agreed to WhereHouse Library's Terms & Conditions, Licensing Agreement and Privacy Policy.
           </p>
           <hr className="line" />
           <div className="cta-container flex justify-between items-center mb-1 sm:mb-2 pt-2 sm:pt-4">
@@ -214,3 +213,4 @@ function SignUpPage() {
 }
 
 export default SignUpPage;
+

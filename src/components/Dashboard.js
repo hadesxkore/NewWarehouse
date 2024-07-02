@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth, firestore, storage, db } from '../firebase'; // Assuming you have Firebase storage
 import firebase from 'firebase/compat/app'; // Import firebase itself
 import * as THREE from 'three';
 import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 
-
+import error1 from '../images/error1.png';
+import approve from '../images/approve.png';
 import priceTagIcon from '../images/price-tag.png';
 import infoIcon from '../images/info.png';
 import location from '../images/location.png';
@@ -20,7 +24,8 @@ import uploadIcon from '../images/upload.png';
 import billIcon from '../images/bill.png'; // Import bill icon
 import leaseIcon from '../images/lease.png'; // Import lease icon
 import reportIcon from '../images/problem.png'; // Import report icon
-
+import checkMark from '../images/check-mark.png'; // Import report icon
+import warnIcon from '../images/warn.png'; // Import report icon
 
 
 import warehouseIcon from '../images/warehouse.png';
@@ -82,7 +87,18 @@ const [isValidUrl, setIsValidUrl] = useState(true);
   // State for managing confirmation modal visibility
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   // State for storing the warehouse ID to be rented
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showRejectModal2, setShowRejectModal2] = useState(false);
+const [rejectReason, setRejectReason] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(null);
+  const [showLeaseModal, setShowLeaseModal] = useState(false);
+const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+const [formData, setFormData] = useState({
+    lessorName: '',
+    lesseeName: '',
+    warehouseName: '',
+    rentAmount: ''
+});
   const [showTooltip, setShowTooltip] = useState(false);
   const [newRentals, setNewRentals] = useState(0);
     const [selectedAmenities, setSelectedAmenities] = useState([]);
@@ -94,9 +110,19 @@ const [isValidUrl, setIsValidUrl] = useState(true);
     const [searchValue, setSearchValue] = useState('');
     const [loggedInUserId, setLoggedInUserId] = useState(null); // Define and initialize loggedInUserI
     const [profileImage, setProfileImage] = useState(defaultProfileImage);
+    const [showModal2, setShowModal2] = useState(false); // State for displaying modal
+    const navigate = useNavigate();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [filterStatus, setFilterStatus] = useState('All'); // New state for filtering warehouses
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [fileNames, setFileNames] = useState({});
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [currentWarehouse, setCurrentWarehouse] = useState(null);
+    const [showErrorModal, setShowErrorModal] = useState(false); // State for showing error modal
+    const [showRentingApprovedModal, setShowRentingApprovedModal] = useState(false);
+    const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
+
+    const [showLeaseAgreementModal, setShowLeaseAgreementModal] = useState(false);
     const [currentView, setCurrentView] = useState('uploaded'); // <-- Define setCurrentView here
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [filterCounts, setFilterCounts] = useState({
@@ -115,7 +141,15 @@ const [isValidUrl, setIsValidUrl] = useState(true);
         videos: [],
         status: 'pending', // Add status field
         uploadDate: null, // Add uploadDate field
+        identificationProof: null,
+        addressProof: null,
+        ownershipDocuments: null,
+        previousTenancyDetails: null,
+        businessPermit: null,
+        buildingPermit: null,
+        maintenanceRecords: null,
     });
+    
     const [warehouseLocation, setWarehouseLocation] = useState({ lat: 0, lng: 0 });
     // Define state variables for modal image URL and modal visibility
     const [modalImageUrl, setModalImageUrl] = useState('');
@@ -123,7 +157,11 @@ const [isValidUrl, setIsValidUrl] = useState(true);
         const [uploading, setUploading] = useState(false);
         const [showUploadModal, setShowUploadModal] = useState(false);
         const [userWarehouses, setUserWarehouses] = useState([]);
+        const [isRejectReasonModalOpen, setIsRejectReasonModalOpen] = useState(false);
+        const [rejectionReason, setRejectionReason] = useState('');
         const [loadingWarehouses, setLoadingWarehouses] = useState(true);
+        const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
         const [successMessage, setSuccessMessage] = useState('');
         const [newAddress, setNewAddress] = useState('');
         // Function to handle warehouse data change
@@ -149,7 +187,21 @@ const [isValidUrl, setIsValidUrl] = useState(true);
             { name: 'Car', icon: carIcon },
             { name: 'Security Guard', icon: policemanIcon },
         ];
-        
+     
+    // Function to handle file upload for different document types
+    const handleFileUpload = async (e) => {
+        setUploading(true);
+        const file = e.target.files[0];
+        const { name } = e.target;
+        const storageRef = storage.ref();
+        const fileRef = storageRef.child(file.name);
+        await fileRef.put(file);
+        const url = await fileRef.getDownloadURL();
+        setWarehouseData((prevData) => ({ ...prevData, [name]: url }));
+        setFileNames((prevFileNames) => ({ ...prevFileNames, [name]: file.name }));
+        setUploading(false);
+    };
+
       // Assuming amenitiesList is the object causing the error
 <div className="amenities-container">
     {Object.keys(amenitiesList).map((key, index) => (
@@ -159,6 +211,77 @@ const [isValidUrl, setIsValidUrl] = useState(true);
         </div>
     ))}
 </div>
+const handleNotificationClick = (warehouse) => {
+    setSelectedWarehouse(warehouse);
+    setShowRentingApprovedModal(true);
+};
+
+   // Function to handle opening the edit modal
+   const handleEditWarehouse = (warehouse) => {
+    setCurrentWarehouse(warehouse);
+    setIsEditModalOpen(true);
+};
+   // Function to handle closing the edit modal
+   const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setCurrentWarehouse(null);
+};
+const handleRejectModal = (warehouse) => {
+    if (!warehouse) {
+        console.error('Warehouse object is null or undefined');
+        return;
+    }
+    console.log('Warehouse clicked:', warehouse); // Debug log
+    setSelectedWarehouse(warehouse);
+    setShowRejectModal2(true);
+};
+const handleCloseRejectModal = () => {
+    setShowRejectModal2(false);
+    setSelectedWarehouse(null);
+};
+
+useEffect(() => {
+    if (selectedWarehouseId && showRejectModal2) {
+        console.log('Fetching rejectReason for warehouse:', selectedWarehouseId); // Debug log
+        const warehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouseId);
+        warehouseRef.get().then((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                console.log('Fetched rejectReason:', data.rejectReason); // Debug log
+                setRejectReason(data.rejectReason); // Update state with the fetched rejectReason
+            } else {
+                console.error('No such document!');
+                setRejectReason('No reason found'); // Set default message if no document
+            }
+        }).catch((error) => {
+            console.error('Error getting document:', error);
+            setRejectReason('Error fetching reason'); // Set error message
+        });
+    }
+}, [selectedWarehouseId, showRejectModal2]);
+const handleCloseLeaseAgreementModal = () => {
+    setShowLeaseAgreementModal(false);
+};
+const handleSaveChanges = async () => {
+    // Update the Firestore document
+    const warehouseRef = doc(db, 'warehouses', currentWarehouse.id);
+    try {
+        await updateDoc(warehouseRef, currentWarehouse);
+        // Update the state
+        setUserWarehouses((prevWarehouses) => {
+            return prevWarehouses.map((warehouse) =>
+                warehouse.id === currentWarehouse.id ? currentWarehouse : warehouse
+            );
+        });
+        setIsEditModalOpen(false);
+        setCurrentWarehouse(null);
+        setIsSuccessModalOpen(true); // Show success modal
+    } catch (error) {
+        console.error("Error updating document: ", error);
+        // Handle error (optional)
+    }
+};
+
 // Define a custom icon for the marker
 const locationIcon = new L.Icon({
     iconUrl: 'https://leafletjs.com/examples/custom-icons/leaf-green.png',
@@ -169,6 +292,16 @@ const locationIcon = new L.Icon({
     shadowSize: [50, 64],
     shadowAnchor: [4, 62]
 });
+const openRejectReasonModal = (reason) => {
+    setRejectionReason(reason);
+    setIsRejectReasonModalOpen(true);
+};
+
+const closeRejectReasonModal = () => {
+    setIsRejectReasonModalOpen(false);
+    setRejectionReason('');
+};
+
  // Location marker component
  const LocationMarker = ({ position, setCenter, setSearchText }) => {
     const map = useMapEvents({
@@ -183,6 +316,7 @@ const locationIcon = new L.Icon({
         },
     });
 
+   
     return (
         <>
             <Marker position={position} icon={locationIcon} />
@@ -190,7 +324,38 @@ const locationIcon = new L.Icon({
         </>
     );
 };
+ // Function to handle rejection
+ const handleReject = (warehouse) => {
+    setSelectedWarehouseId(warehouse.warehouseId);
+    setShowRejectModal(true);
+};
+// Function to confirm rejection
+const confirmReject = async () => {
+    try {
+        if (!selectedWarehouseId) {
+            throw new Error('Warehouse ID is undefined.');
+        }
 
+        const warehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouseId);
+
+        await warehouseRef.update({
+            status: 'Rejected',
+            rejectReason: rejectReason // Assuming you have a field for reject reason in your Firestore schema
+        });
+
+        console.log('Warehouse marked as rejected successfully.');
+
+        // Close the reject modal
+        setShowRejectModal(false);
+
+        // Optionally, you can perform additional actions after rejection
+
+    } catch (error) {
+        console.error('Error marking warehouse as rejected:', error);
+        // Handle error
+        // You can show an error message or log it
+    }
+};
 
 
 const handleShowMap = () => {
@@ -498,6 +663,13 @@ const handleFullscreen = () => {
                 videos: [],
                 status: 'pending',
                 uploadDate: null,
+                identificationProof: '',
+                addressProof: '',
+                ownershipDocuments: '',
+                previousTenancyDetails: '',
+                businessPermit: '',
+                buildingPermit: '',
+                maintenanceRecords: '',
             });
             setSelectedAmenities([]);
         } catch (error) {
@@ -506,6 +678,7 @@ const handleFullscreen = () => {
             setUploading(false);
         }
     };
+    
      // Function to fetch rented warehouses
      const fetchRentedWarehouses = async () => {
         try {
@@ -545,15 +718,83 @@ const handleFullscreen = () => {
     }, [rentedWarehouses]);
 
     
- // Function to handle marking a warehouse as rented
- const markAsRented = (warehouseId) => {
-    // Set the selected warehouse ID
+// Function to handle marking a warehouse as rented
+const markAsRented = async (warehouseId) => {
     setSelectedWarehouseId(warehouseId);
-    // Show the confirmation modal
-    setShowConfirmationModal(true);
+
+    try {
+        const hasLeaseAgreement = await checkLeaseAgreement(warehouseId);
+
+        if (hasLeaseAgreement) {
+            setShowConfirmationModal(true); // Show confirmation modal if lease agreement exists
+        } else {
+            setShowErrorModal(true); // Show error modal if no lease agreement exists
+        }
+    } catch (error) {
+        console.error('Error marking warehouse as rented:', error);
+        setShowErrorModal(true); // Show error modal in case of any error
+    }
 };
-// Function to confirm marking a warehouse as rented
-const confirmMarkAsRented = async () => {
+
+const handleLeaseAgreement = (warehouse) => {
+    setSelectedWarehouse(warehouse);
+    setShowLeaseModal(true);
+    handleLeaseAgreementCheck(warehouse.warehouseId);
+};
+
+const handleLeaseAgreementCheck = async (warehouseId) => {
+    try {
+        const hasLeaseAgreement = await checkLeaseAgreement(warehouseId);
+
+        if (hasLeaseAgreement) {
+            setShowLeaseAgreementModal(true);
+        } else {
+            setShowLeaseAgreementModal(false);
+        }
+    } catch (error) {
+        console.error('Error checking lease agreement:', error);
+        setShowLeaseAgreementModal(false);
+    }
+};
+
+
+
+// Example function to check if there's a lease agreement for a warehouse
+const checkLeaseAgreement = async (warehouseId) => {
+    try {
+        const rentalAgreementRef = firestore.collection('rentalAgreement').where('warehouseId', '==', warehouseId);
+        const snapshot = await rentalAgreementRef.get();
+        
+        return !snapshot.empty; // Return true if there are any lease agreements found
+    } catch (error) {
+        console.error('Error checking lease agreement:', error);
+        return false; // Return false in case of error
+    }
+};
+const transferToLeaseAgreement = async () => {
+    if (selectedWarehouse) {
+        try {
+            const hasLeaseAgreement = await checkLeaseAgreement(selectedWarehouse.warehouseId);
+
+            if (!hasLeaseAgreement) {
+                setFormData({
+                    lessorName: `${selectedWarehouse.ownerFirstName} ${selectedWarehouse.ownerLastName}`,
+                    lesseeName: `${selectedWarehouse.rentedBy.firstName} ${selectedWarehouse.rentedBy.lastName}`,
+                    warehouseName: selectedWarehouse.name,
+                    rentAmount: selectedWarehouse.price
+                });
+                setShowLeaseModal(false);
+                navigate('/create-agreement', { state: { warehouse: selectedWarehouse } });
+            } else {
+                setShowLeaseAgreementModal(true);
+            }
+        } catch (error) {
+            console.error('Error transferring to lease agreement:', error);
+        }
+    }
+};
+   // Function to confirm marking a warehouse as rented
+   const confirmMarkAsRented = async () => {
     try {
         console.log('Warehouse ID in markAsRented:', selectedWarehouseId); // Debug log
 
@@ -572,8 +813,7 @@ const confirmMarkAsRented = async () => {
         // Close the confirmation modal
         setShowConfirmationModal(false);
 
-        // Show success message
-        setShowSuccessMessage(true);
+        // Show success message or navigate to another page
     } catch (error) {
         console.error('Error marking warehouse as rented:', error);
         // Handle error
@@ -598,13 +838,24 @@ useEffect(() => {
 
     checkNewRentals();
 }, [rentedWarehouses.length]);
-
-const handleViewRentals = () => {
-    // Reset the new rentals count when the user views the rentals
-    setNewRentals(0);
-    // Call the original handleRentalWarehousesClick function
-    handleRentalWarehousesClick();
+  // Function to check if the user has warehouses
+  const checkIfUserHasWarehouses = () => {
+    return userWarehouses.length > 0; // Check if the user has any warehouses
 };
+
+   // Function to handle viewing rentals
+   const handleViewRentals = () => {
+    const hasWarehouses = checkIfUserHasWarehouses();
+    
+    if (!hasWarehouses) {
+        setShowModal2(true); // Display modal if user doesn't have warehouses
+    } else {
+        // User has warehouses, proceed with your logic
+        handleRentalWarehousesClick(); // Example function call
+        fetchRentedWarehouses(); // Example function call
+    }
+};
+
 
 // Function to fetch user's uploaded warehouses and filter counts
 const fetchUserWarehouses = async () => {
@@ -792,21 +1043,17 @@ return (
         {rentedWarehouses.length}
     </div>
 </div>
-{/* View My Rentals Card */}
-<div className="bg-white p-6 border border-gray-300 rounded-lg shadow-lg w-80 relative card ">
-    <div className="relative flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 rounded-t-lg" onClick={() => {
-        handleViewRentals();
-        fetchRentedWarehouses(); // Fetch rented warehouses when clicked
-    }}>
-        <div className="flex items-center">
-            <div className="flex-shrink-0 bg-gray-200 p-3 rounded-xl">
-                <img src={keyIcon} alt="Rented Warehouse Icon" className="h-8 w-8" />
+<div className="bg-white p-6 border border-gray-300 rounded-lg shadow-lg w-80 relative card">
+            <div className="relative flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 rounded-t-lg" onClick={handleViewRentals}>
+                <div className="flex items-center">
+                    <div className="flex-shrink-0 bg-gray-200 p-3 rounded-xl">
+                        <img src={keyIcon} alt="Rented Warehouse Icon" className="h-8 w-8" />
+                    </div>
+                    <div className="ml-4 text-lg font-semibold">View Rentals</div>
+                </div>
             </div>
-            <div className="ml-4 text-lg font-semibold">View Rentals</div> {/* Align text to the right */}
-      
-       
-        </div>
-    </div>
+
+         
     <hr className="my-4 border-gray-300" />
     <div className="text-left text-sm text-gray-500">{currentDate}</div>
           {/* Count value at the top right corner */}
@@ -817,20 +1064,35 @@ return (
 </div>
 
 </div>
+{/* Inline pop-up modal for encouraging becoming a lessor */}
+{showModal2 && (
+    <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-800 bg-opacity-75 z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
+            <h2 className="text-xl font-bold mb-4">For Lessors Only</h2>
+            <p>This module is for lessor only. If you'd like to become a lessor and start renting out your warehouses, begin by creating your warehouse listings.</p>
+            <div className="flex justify-end mt-4">
+                <button
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg mr-2"
+                    onClick={() => setShowModal2(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
 
 
 
-      {/* Warehouse Upload Modal */}
 {showUploadModal && (
     <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-lg shadow-md w-full max-w-6xl">
-            <h2 className="text-2xl font-bold mb-4">Upload Warehouse Details</h2>
-            <form onSubmit={handleSubmit} className="flex flex-col">
-                {/* Form Inputs */}
-                <div className="flex flex-wrap -mx-4">
+        <div className="bg-white rounded-lg shadow-md max-w-7xl w-full p-4 overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Upload Warehouse Details</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {/* Warehouse Name */}
-                    <div className="w-full md:w-1/3 px-4 mb-4">
-                        <label className="block text-lg font-medium mb-2" htmlFor="name">Warehouse Name</label>
+                    <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="name">Warehouse Name</label>
                         <input
                             type="text"
                             id="name"
@@ -842,8 +1104,8 @@ return (
                         />
                     </div>
                     {/* Address */}
-                    <div className="w-full md:w-1/3 px-4 mb-4">
-                        <label className="block text-lg font-medium mb-2" htmlFor="address">Address</label>
+                    <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="address">Address</label>
                         <input
                             type="text"
                             id="address"
@@ -855,8 +1117,8 @@ return (
                         />
                     </div>
                     {/* Price */}
-                    <div className="w-full md:w-1/3 px-4 mb-4">
-                        <label className="block text-lg font-medium mb-2" htmlFor="price">Price</label>
+                    <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="price">Price</label>
                         <input
                             type="number"
                             id="price"
@@ -867,22 +1129,9 @@ return (
                             required
                         />
                     </div>
-                    {/* Description */}
-                    <div className="w-full px-4 mb-4">
-                        <label className="block text-lg font-medium mb-2" htmlFor="description">Description</label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            value={warehouseData.description}
-                            onChange={handleWarehouseDataChange}
-                            rows="2"
-                            className="textarea-field"
-                            required
-                        ></textarea>
-                    </div>
                     {/* 360 Image Link */}
-                    <div className="w-full md:w-1/2 px-4 mb-4">
-                        <label className="block text-lg font-medium mb-2" htmlFor="image360Url">360 Image Link</label>
+                    <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="image360Url">360 Image Link</label>
                         <input
                             type="url"
                             id="image360Url"
@@ -890,60 +1139,118 @@ return (
                             value={warehouseData.image360Url}
                             onChange={handleWarehouseDataChange}
                             className="input-field"
-                            placeholder="Paste your 360 flat image link here in (jpeg, jpg, or png format)"
+                            placeholder="Paste your 360 image link here (jpeg, jpg, or png format)"
                             required
                         />
                     </div>
-                    {/* Upload Images and Videos */}
-                    <div className="w-full md:w-1/2 px-4 mb-4">
-                        <div className="flex justify-between">
-                            {/* Upload Images */}
-                            <div className="flex items-center mb-2">
-                                <label className="block text-lg font-medium mr-2">Upload Images</label>
-                                <label htmlFor="image-upload" className="upload-btn">Upload</label>
-                            </div>
-                            {/* Upload Videos */}
-                            <div className="flex items-center mb-2">
-                                <label className="block text-lg font-medium mr-2">Upload Videos</label>
-                                <label htmlFor="video-upload" className="upload-btn">Upload</label>
-                            </div>
-                        </div>
-                        <input id="image-upload" type="file" onChange={handleImageUpload} accept="image/*" className="hidden" />
-                        <input id="video-upload" type="file" onChange={handleVideoUpload} accept="video/*" className="hidden" />
-                        {uploading && <p className="text-sm text-gray-500">Uploading...</p>}
-                    </div>
-                    {/* Amenities */}
-                    <div className="w-full px-4 mb-4">
-                        <label className="block text-lg font-medium mb-2">Amenities</label>
-                        <div className="amenities-container flex flex-wrap">
-                            {amenitiesList.map((amenity, index) => (
-                                <label key={index} className="amenity-item flex items-center mr-4 mb-2">
-                                    <input
-                                        type="checkbox"
-                                        name={amenity.name}
-                                        checked={selectedAmenities.some(item => item.name === amenity.name)}
-                                        onChange={() => handleAmenitySelection(amenity)}
-                                    />
-                                    <img src={amenity.icon} alt={amenity.name} className="w-6 h-6 ml-2" />
-                                    {amenity.name}
-                                </label>
-                            ))}
-                        </div>
+                    {/* Description */}
+                    <div className="col-span-2 lg:col-span-4">
+                        <label className="block text-sm font-medium mb-1" htmlFor="description">Description</label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            value={warehouseData.description}
+                            onChange={handleWarehouseDataChange}
+                            rows="3"
+                            className="textarea-field"
+                            required
+                        ></textarea>
                     </div>
                 </div>
-                {/* Buttons */}
-                <div className="w-full px-4 mb-4">
-                    <div className="flex justify-end">
-                        <button type="button" className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300 mr-2" onClick={() => setShowUploadModal(false)}>Cancel</button>
-                        <button type="submit" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300 mr-2">Submit</button>
-                        <button type="button" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300" onClick={handleShowMap}>Show Map</button>
+ {/* Upload Images and Videos */}
+<div className="flex items-center justify-start mb-2">
+    {/* Upload Images */}
+    <div className="flex items-center mr-4">
+        <label className="block text-sm font-medium mr-2">Upload Images</label>
+        <label htmlFor="image-upload" className="upload-btn">Upload</label>
+        <input id="image-upload" type="file" onChange={handleImageUpload} accept="image/*" className="hidden" />
+    </div>
+    {/* Upload Videos */}
+    <div className="flex items-center">
+        <label className="block text-sm font-medium mr-2">Upload Videos</label>
+        <label htmlFor="video-upload" className="upload-btn">Upload</label>
+        <input id="video-upload" type="file" onChange={handleVideoUpload} accept="video/*" className="hidden" />
+    </div>
+    {uploading && <p className="text-sm text-gray-500 ml-4">Uploading...</p>}
+</div>
+
+                {/* Amenities */}
+                <div>
+                    <label className="block text-sm font-medium mb-1">Amenities</label>
+                    <div className="amenities-container flex flex-wrap">
+                        {amenitiesList.map((amenity, index) => (
+                            <label key={index} className="amenity-item flex items-center mr-2 mb-1">
+                                <input
+                                    type="checkbox"
+                                    name={amenity.name}
+                                    checked={selectedAmenities.some(item => item.name === amenity.name)}
+                                    onChange={() => handleAmenitySelection(amenity)}
+                                />
+                                <img src={amenity.icon} alt={amenity.name} className="w-5 h-5 ml-2" />
+                                {amenity.name}
+                            </label>
+                        ))}
                     </div>
                 </div>
+              {/* File Uploads */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[
+                { id: "identificationProof", label: "Identification Proof/Valid ID" },
+                { id: "addressProof", label: "Address Proof" },
+                { id: "ownershipDocuments", label: "Ownership Documents" },
+                { id: "previousTenancyDetails", label: "Previous Tenancy Details (if applicable)" },
+                { id: "businessPermit", label: "Business Permit" },
+                { id: "buildingPermit", label: "Building Permit" },
+                { id: "maintenanceRecords", label: "Maintenance Records" },
+            ].map((field) => (
+                <div key={field.id}>
+                    <label className="block text-sm font-medium mb-1" htmlFor={field.id}>{field.label}</label>
+                    <div className="relative border border-gray-300 rounded-lg overflow-hidden transition-shadow hover:shadow-lg">
+                        <input
+                            type="file"
+                            id={field.id}
+                            name={field.id}
+                            onChange={handleFileUpload}
+                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                            required={field.id !== "previousTenancyDetails" && field.id !== "businessRegistration" && field.id !== "insuranceDocuments" && field.id !== "maintenanceRecords"}
+                        />
+                        <div className="flex items-center justify-center h-10 bg-gray-100 hover:bg-blue-100 transition-colors">
+                            <span className="text-gray-700 hover:text-blue-700">{fileNames[field.id] || "Choose File"}</span>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1" id={`${field.id}-file-name`}>{fileNames[field.id]}</p>
+                </div>
+            ))}
+</div>
+
+              {/* Buttons */}
+<div className="flex justify-end mt-4 space-x-2">
+    <button
+        type="button"
+        className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+        onClick={() => setShowUploadModal(false)}
+    >
+        Cancel
+    </button>
+    <button
+        type="submit"
+        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+    >
+        Submit
+    </button>
+    <button
+        type="button"
+        className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors"
+        onClick={handleShowMap}
+    >
+        Show Map
+    </button>
+</div>
+
             </form>
         </div>
     </div>
 )}
-
 
 
 
@@ -1005,7 +1312,7 @@ return (
 {currentView === 'uploaded' && (
     <div className="container mx-auto px-8 py-10 rounded-lg">
      {/* Filter buttons */}
-<div className="flex justify-center mt-4 space-x-2">
+<div className="flex justify-center mb-8 space-x-2">
     <button
         onClick={() => handleFilterChange('All')}
         className={`px-4 py-2 rounded-lg mr-2 ${
@@ -1041,11 +1348,23 @@ return (
 </div>
   
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {userWarehouses.map(warehouse => (
-                <div key={warehouse.id} className="bg-white p-4 rounded-lg shadow-md relative">
+        {userWarehouses.map(warehouse => (
+                <div key={warehouse.id} className="bg-white p-4 rounded-lg shadow-md relative ">
                     <div className="flex justify-between mb-2">
-                        <h3 className="text-lg font-semibold">{warehouse.name}</h3>
-                    </div>
+                    <h3 className="text-lg font-semibold">{warehouse.name}</h3>
+                {warehouse.status === 'rejected' && (
+                    <span className="relative">
+                        <span 
+                            className="absolute top-0 right-0 mr-2 flex items-center justify-center cursor-pointer "
+                            style={{ width: '28px', height: '28px' }}
+                            onClick={() => openRejectReasonModal(warehouse.rejectionReason)}
+                            title="Click to see reason"
+                        >
+                            <img src={error1} alt="Error Icon" className="h-6 w-6 pumping-icon" />
+                        </span>
+                    </span>
+                )}
+            </div>
                     <p className="text-gray-600 mb-2">
                         <img src={location} alt="Location Icon" className="inline-block h-4 mr-2" /> {/* Location Icon */}
                         <span className="font-bold">Address:</span> {warehouse.address}
@@ -1061,7 +1380,12 @@ return (
                     <p>Status:
                         {warehouse.status === 'pending' && <span className="status-text" style={{ color: 'orange' }}>Pending</span>}
                         {warehouse.status === 'verified' && <span className="status-text" style={{ color: 'green' }}>Verified</span>}
-                        {warehouse.status === 'rejected' && <span className="status-text" style={{ color: 'red' }}>Rejected</span>}
+                        {warehouse.status === 'rejected' && (
+                            <span className="status-text" style={{ color: 'red' }}>
+                                Rejected
+                               
+                            </span>
+                        )}
                     </p>
                     <div className="flex flex-wrap mt-2">
                         {warehouse.images.map((imageUrl, index) => (
@@ -1075,21 +1399,108 @@ return (
                     </div>
                     <span className="font-bold">Upload Date:</span> {warehouse.uploadDate ? new Date(warehouse.uploadDate.toDate()).toLocaleString() : 'Unknown'}
                     <div className="flex justify-end mt-4 space-x-4">
-    <button className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => openCarousel(warehouse.images)}>View</button>
-    <button className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1"  onClick={() => handleDeleteWarehouse(warehouse)}>Delete</button>
-    <button
-        type="button"
-        className="bg-gradient-to-r  from-blue-500 to-purple-600 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
-        onClick={() => handleShow360Tour(warehouse.image360Url)}
-    >
-        Show 360 Tour
-    </button>
-</div>
+                        <button className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => openCarousel(warehouse.images)}>View</button>
+                        <button className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => handleDeleteWarehouse(warehouse)}>Delete</button>
+                        <button className="bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => handleEditWarehouse(warehouse)}>Edit</button>
 
-                          
+                        <button
+                            type="button"
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+                            onClick={() => handleShow360Tour(warehouse.image360Url)}
+                        >
+                            Show 360 Tour
+                        </button>
+                    </div>
                 </div>
-                
-            ))} 
+            ))}
+            
+             {isEditModalOpen && currentWarehouse && (
+                <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
+                    <div className="relative bg-white p-6 rounded-lg shadow-md w-full max-w-2xl">
+                        <span className="absolute top-2 right-2 text-2xl cursor-pointer" onClick={handleCloseEditModal}>&times;</span>
+                        <h2 className="text-2xl font-bold mb-4">Edit Warehouse</h2>
+                        <form>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Name</label>
+                                <input
+                                    type="text"
+                                    value={currentWarehouse.name}
+                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Address</label>
+                                <input
+                                    type="text"
+                                    value={currentWarehouse.address}
+                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, address: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Description</label>
+                                <textarea
+                                    value={currentWarehouse.description}
+                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, description: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium mb-1">Price</label>
+                                <input
+                                    type="number"
+                                    value={currentWarehouse.price}
+                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, price: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-4">
+                                <button type="button" className="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition duration-300" onClick={handleCloseEditModal}>Cancel</button>
+                                <button type="button" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300" onClick={handleSaveChanges}>Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {isSuccessModalOpen && (
+    <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
+        <div className="relative bg-white p-6 rounded-lg shadow-md w-full max-w-sm text-center">
+            <span className="absolute top-2 right-2 text-2xl cursor-pointer" onClick={() => setIsSuccessModalOpen(false)}>&times;</span>
+            <h2 className="text-2xl font-bold mb-4">Success</h2>
+            <p>Your changes have been saved successfully!</p>
+            <button 
+                type="button" 
+                className="mt-4 bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+                onClick={() => setIsSuccessModalOpen(false)}
+            >
+                OK
+            </button>
+        </div>
+    </div>
+)}
+
+             {/* Modal for Rejection Reason */}
+             {isRejectReasonModalOpen && (
+                <div className="modal fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-800 bg-opacity-75">
+                    <div className="modal-content bg-white p-4 max-w-lg max-h-3/4 overflow-y-auto relative">
+                        <button className="absolute top-2 right-2 text-gray-700 hover:text-gray-900" onClick={closeRejectReasonModal}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <div className="modal-header flex justify-center items-center mb-4">
+                            <h2 className="text-xl font-bold">Rejection Reason</h2>
+                        </div>
+                        <div className="modal-body">
+                            <p>{rejectionReason}</p>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <button className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300" onClick={closeRejectReasonModal}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     </div>
     
@@ -1105,51 +1516,119 @@ return (
         </div>
     </div>
 )}
+{currentView === 'rented' && (
+    <div className={`${showRentedWarehousesModal ? 'block' : 'hidden'}`}>
+        <div className="container mx-auto px-4 mt-10">
+            <h2 className="text-3xl font-bold mb-6 textUser">Your Rented Warehouses</h2>
+            {rentedWarehouses.length === 0 ? (
+                <div className="flex justify-center items-center mt-24">
+                    <div className="bg-gray-300 rounded-lg p-6 shadow-md">
+                        <p className="text-lg text-gray-900">No rented warehouses found.</p>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {rentedWarehouses.map(warehouse => (
+                        <div key={warehouse.warehouseId} className="bg-white rounded-lg shadow-md p-6 relative">
+                           {/* Approve Icon */}
+{warehouse.status === 'Rented' && (
+    <img
+        src={approve}
+        alt="Approve"
+        className="absolute top-0 right-0 cursor-pointer h-12 w-12 mt-3 mr-3 hover:opacity-75 pumping-animation"
+        onClick={() => handleNotificationClick(warehouse)} // Pass the entire warehouse object
+    />
+)}
 
-    {currentView === 'rented' && (
-        <div className={`${showRentedWarehousesModal ? 'block' : 'hidden'}`}>
-            <div className="container mx-auto px-4 mt-10">
-                <h2 className="text-3xl font-bold mb-6 textUser">Your Rented Warehouses</h2>
-                {rentedWarehouses.length === 0 ? (
-                    <div className="flex justify-center items-center mt-24">
-                        <div className="bg-gray-300 rounded-lg p-6 shadow-md">
-                            <p className="text-lg text-gray-900">No rented warehouses found.</p>
+                            {/* Reject Icon and Modal */}
+                           {warehouse.status === 'Rejected' && (
+                            <div className="absolute top-0 right-0 cursor-pointer h-10 w-10 mt-3 mr-3 pumping-animation">
+                                <img
+                                    src={error1}
+                                    alt="Reject"
+                                    onClick={() => handleRejectModal(warehouse)}
+                                />
+                            </div>
+                        )}
+
+
+                            <h3 className="text-xl font-semibold mb-4">{warehouse.name}</h3>
+                            <div className="text-gray-700 mb-4">
+                                <p><strong>Address:</strong> {warehouse.address}</p>
+                                <p><strong>Description:</strong> {warehouse.description}</p>
+                                <p><strong>Owner:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
+                            </div>
+                            <p className="text-gray-700 mb-4"><strong>Price:</strong> ₱{warehouse.price}</p>
+                            <p className="text-gray-700 mb-4"><strong>Status:</strong> <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>{warehouse.status}</span></p>
+
+                            <p className="text-gray-800 font-semibold mb-2">Amenities:</p>
+                            <div className="flex flex-wrap mb-4">
+                                {warehouse.amenities.map((amenity, index) => (
+                                    <div key={index} className="flex items-center mr-4 mb-2">
+                                        <img src={amenity.icon} alt={amenity.name} className="w-4 h-4 mr-2" />
+                                        <span>{amenity.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {warehouse.images.map((image, index) => (
+                                    <img key={index} src={image} alt={`Image ${index + 1}`} className="w-full h-auto rounded-md mb-2" />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+)}
+ {/* Rejection Reason Modal */}
+ {showRejectModal2 && selectedWarehouse && (
+                <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
+                    <div className="bg-white rounded-lg shadow-md p-6 max-w-md">
+                        <div className="text-gray-800 text-center mb-4">
+                            <h2 className="text-lg font-semibold">Reason of Rejection</h2>
+                            <p className="text-base"><strong>{selectedWarehouse.name}</strong></p>
+                        </div>
+                        <div className="border-t border-gray-300 pt-4">
+                            <p className="text-gray-700 px-4 py-2 border border-gray-300 rounded-md">
+                                {selectedWarehouse.rejectReason || 'No reason provided'}
+                            </p>
+                            <div className="flex justify-center mt-4">
+                                <button
+                                    className="bg-red-600 text-white font-semibold py-2 px-4 rounded hover:bg-red-500 transition duration-300"
+                                    onClick={handleCloseRejectModal}
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {rentedWarehouses.map(warehouse => (
-                            <div key={warehouse.warehouseId} className="bg-white rounded-lg shadow-md p-6">
-                                <h3 className="text-xl font-semibold mb-4">{warehouse.name}</h3>
-                                <div className="text-gray-700 mb-4">
-                                    <p><strong>Address:</strong> {warehouse.address}</p>
-                                    <p><strong>Description:</strong> {warehouse.description}</p>
-                                    <p><strong>Owner:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
-                                </div>
-                                <p className="text-gray-700 mb-4"><strong>Price:</strong> ₱{warehouse.price}</p>
-                                <p className="text-gray-700 mb-4"><strong>Status:</strong> <span style={{ color: 'green' }}>{warehouse.status}</span></p>
+                </div>
+            )}
 
-                                <p className="text-gray-800 font-semibold mb-2">Amenities:</p>
-                                <div className="flex flex-wrap mb-4">
-                                    {warehouse.amenities.map((amenity, index) => (
-                                        <div key={index} className="flex items-center mr-4 mb-2">
-                                            <img src={amenity.icon} alt={amenity.name} className="w-4 h-4 mr-2" />
-                                            <span>{amenity.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    {warehouse.images.map((image, index) => (
-                                        <img key={index} src={image} alt={`Image ${index + 1}`} className="w-full h-auto rounded-md mb-2" />
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+{/* Renting Approved Modal */}
+{showRentingApprovedModal && selectedWarehouse && (
+    <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
+        <div className="absolute opacity-75"></div>
+        <div className="bg-white rounded-lg shadow-md max-w-md">
+            <div className="p-6 flex flex-col items-center">
+                <img src={checkMark} alt="Check Mark" className="w-16 h-16 mb-4" />
+                <p className="text-gray-700 text-center mb-4">
+                    The renting of <strong>{selectedWarehouse.name}</strong> has been approved successfully.
+                </p>
+                <div className="flex justify-center">
+                    <button
+                        className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300"
+                        onClick={() => setShowRentingApprovedModal(false)}
+                    >
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
-    )}
+    </div>
+)}
 
 {currentView === 'rentals' && (
     <div className={`${showRentedWarehousesModal ? 'block' : 'hidden'}`}>
@@ -1167,16 +1646,16 @@ return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {rentedWarehouses.map(warehouse => (
                         <div key={warehouse.warehouseId} className="bg-white rounded-lg shadow-md p-6">
-                            <h3 className="text-xl font-semibold mb-4">{warehouse.name}</h3>
-                            <div className="text-gray-700 mb-4">
+                            <h3 className="text-2xl font-semibold mb-4">{warehouse.name}</h3>
+                            <div className="text-gray-700 mb-4 text-xl ">
                                 <p><strong>Address:</strong> {warehouse.address}</p>
                                 <p><strong>Description:</strong> {warehouse.description}</p>
-                                <p><strong>Owner:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
+                                <p><strong>Lessor:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
                             </div>
-                            <p className="text-gray-700 mb-4"><strong>Price:</strong> ₱{warehouse.price}</p>
-                            <p className="text-gray-700 mb-4"><strong>Status:</strong> <span style={{ color: 'green' }}>{warehouse.status}</span></p>
-                            <p className="text-gray-700 mb-4"><strong>Rented By:</strong> {warehouse.rentedBy.firstName} {warehouse.rentedBy.lastName}</p>
-                            <p className="text-gray-800 font-semibold mb-2">Amenities:</p>
+                            <p className="text-gray-700 mb-4 text-xl"><strong>Price:</strong> ₱{warehouse.price}</p>
+                            <p className="text-gray-700 mb-4 text-xl"><strong>Status:</strong> <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>{warehouse.status}</span></p>
+                            <p className="text-gray-700 mb-4 text-xl"><strong>Lessee:</strong> {warehouse.rentedBy?.firstName} {warehouse.rentedBy?.lastName}</p>
+                            <p className="text-gray-800 font-semibold mb-2 text-xl">Amenities:</p>
                             <div className="flex flex-wrap mb-4">
                                 {warehouse.amenities.map((amenity, index) => (
                                     <div key={index} className="flex items-center mr-4 mb-2">
@@ -1190,13 +1669,26 @@ return (
                                     <img key={index} src={image} alt={`Image ${index + 1}`} className="w-full h-auto rounded-md mb-2" />
                                 ))}
                             </div>
-                            {/* Add the "Rented" button */}
-                            <button
-                                className="bg-green-500 text-white font-semibold py-2 px-12 rounded hover:bg-green-600 transition duration-300 mt-4"
-                                onClick={() => markAsRented(warehouse.warehouseId)}
-                            >
-                                Rented
-                            </button>
+                            <div className="flex space-x-4 mt-4">
+                                <button
+                                    className="bg-green-500 text-white font-semibold py-2 px-12 rounded hover:bg-green-600 transition duration-300"
+                                    onClick={() => markAsRented(warehouse.warehouseId)}
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    className="bg-blue-500 text-white font-semibold py-2 px-12 rounded hover:bg-blue-600 transition duration-300"
+                                    onClick={() => handleLeaseAgreement(warehouse)}
+                                >
+                                    Lease Agreement
+                                </button>
+                                <button
+                                    className="bg-red-500 text-white font-semibold py-2 px-12 rounded hover:bg-red-600 transition duration-300"
+                                    onClick={() => handleReject(warehouse)}
+                                >
+                                    Reject
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -1207,6 +1699,81 @@ return (
 
 
 
+{/* Rejection Reason Modal */}
+{showRejectModal && (
+    <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50">
+        <div className="absolute inset-0 bg-gray-800 opacity-75"></div>
+        <div className="bg-white rounded-lg shadow-md p-6 max-w-xl w-full relative">
+            <p className="text-gray-800 text-center mb-4">Reason for Rejecting <strong>{selectedWarehouseName}</strong>:</p>
+            <textarea
+                className="border border-gray-300 rounded-md p-2 w-full mb-4"
+                rows="4"
+                placeholder="Enter reason for rejection..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+            ></textarea>
+            <div className="flex justify-center">
+                <button
+                    className="bg-red-500 text-white font-semibold py-2 px-6 rounded hover:bg-red-600 transition duration-300 mr-2"
+                    onClick={confirmReject}
+                >
+                    Submit
+                </button>
+                <button
+                    className="bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded hover:bg-gray-400 transition duration-300"
+                    onClick={() => setShowRejectModal(false)}
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+{showLeaseModal && selectedWarehouse && (
+                <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-800 bg-opacity-75 z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
+                        <h2 className="text-xl font-bold mb-4">Lease Agreement Details</h2>
+                        <p><strong>Warehouse Name:</strong> {selectedWarehouse.name}</p>
+                        <p><strong>Price:</strong> ₱{selectedWarehouse.price}</p>
+                        <p><strong>Lessor:</strong> {selectedWarehouse.ownerFirstName} {selectedWarehouse.ownerLastName}</p>
+                        <p><strong>Lessee:</strong> {selectedWarehouse.rentedBy?.firstName} {selectedWarehouse.rentedBy?.lastName}</p>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg mr-2"
+                                onClick={transferToLeaseAgreement}
+                            >
+                                Proceed to Lease Agreement
+                            </button>
+                            <button
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg mr-2"
+                                onClick={() => setShowLeaseModal(false)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+{showLeaseAgreementModal && (
+    <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-800 bg-opacity-75 z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
+            <div className="flex flex-col items-center">
+                <img src={warnIcon} alt="Warning Icon" className="h-12 w-12 mr-2" />
+                <p className="text-xl font-semibold mt-4 mb-4">You already have a lease agreement for this warehouse.</p>
+            </div>
+            <div className="flex justify-center">
+                <button
+                    className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300"
+                    onClick={handleCloseLeaseAgreementModal}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
 
 <div className="relative">
             {/* Your existing content */}
@@ -1214,7 +1781,7 @@ return (
             {showConfirmationModal && (
                 <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50">
                     <div className="bg-white rounded-lg shadow-md overflow-hidden max-w-md">
-                        <div className="bg-blue-500 px-4 py-2 flex justify-between items-center">
+                        <div className="bg-green-500 px-4 py-2 flex justify-between items-center">
                             <h2 className="text-white text-lg font-semibold">Confirm Action</h2>
                             <button
                                 className="text-white hover:text-gray-200 focus:outline-none"
@@ -1229,13 +1796,13 @@ return (
                             <p className="text-gray-800 mb-4">Are you sure you want to mark this warehouse as rented?</p>
                             <div className="flex justify-end">
                                 <button
-                                    className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300 mr-2 focus:outline-none"
+                                    className="bg-green-600 text-white font-semibold py-2 px-4 rounded hover:bg-green-500 transition duration-300 mr-2 focus:outline-none"
                                     onClick={confirmMarkAsRented}
                                 >
                                     Confirm
                                 </button>
                                 <button
-                                    className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300 focus:outline-none"
+                                    className="bg-red-600 text-white font-semibold py-2 px-4 rounded hover:bg-red-500 transition duration-300 focus:outline-none"
                                     onClick={() => setShowConfirmationModal(false)}
                                 >
                                     Cancel
@@ -1245,6 +1812,25 @@ return (
                     </div>
                 </div>
             )}
+{/* Error Modal for No Lease Agreement */}
+{showErrorModal && (
+    <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50">
+        <div className="absolute bg-gray-800 opacity-75 inset-0"></div> {/* Dim background */}
+        <div className="bg-white rounded-lg shadow-md p-6 max-w-md relative z-10">
+            <div className="flex flex-col items-center">
+                <img src={error1} alt="Error Icon" className="w-16 h-16 mb-4" />
+                <p className="font-semibold mb-4 text-center text-xl">You cannot approve without a lease agreement.</p>
+                <button
+                    className="bg-red-600 text-white font-semibold py-2 px-4 rounded hover:bg-red-500 transition duration-300"
+                    onClick={() => setShowErrorModal(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
 
             {showSuccessMessage && (
                 <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50">

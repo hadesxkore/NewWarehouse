@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
 import axios from 'axios';
-
+import placeholderIcon from '../images/placeholder.png'; // Import report icon
 import { Carousel } from 'react-responsive-carousel';
 import Footer from './Footer';
 import 'leaflet/dist/leaflet.css';
@@ -46,13 +46,13 @@ const DetailView = () => {
    
 // Define a custom icon for the marker
 const locationIcon = new L.Icon({
-    iconUrl: 'https://leafletjs.com/examples/custom-icons/leaf-green.png',
-    iconSize: [38, 95],
-    iconAnchor: [22, 94],
-    popupAnchor: [-3, -76],
-    shadowUrl: 'https://leafletjs.com/examples/custom-icons/leaf-shadow.png',
-    shadowSize: [50, 64],
-    shadowAnchor: [4, 62]
+    iconUrl: placeholderIcon,
+    iconSize: [30, 30], // Set to the size of your custom icon
+    iconAnchor: [15, 30], // Adjust this to position the icon correctly
+    popupAnchor: [0, -30], // Adjust this to position the popup correctly
+    shadowUrl:placeholderIcon,
+    shadowSize: [30, 30], // Adjust to fit better with the icon size
+    shadowAnchor: [15, 30] // Adjust this to position the shadow correctly
 });
 useEffect(() => {
     const geocodeAddress = async () => {

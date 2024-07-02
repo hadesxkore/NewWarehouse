@@ -25,3 +25,36 @@
   font-size: 20px;
   
 }
+.button-style {
+  display: inline-block;
+  width: 100px; /* Adjust width as needed */
+  height: 40px; /* Adjust height as needed */
+  text-align: center;
+  line-height: 40px; /* Center align text vertically */
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.button-style:hover {
+  filter: brightness(110%);
+}
+
+.bg-green-500 {
+  background-color: #34d399; /* Green background color */
+}
+
+.bg-red-500 {
+  background-color: #ef4444; /* Red background color */
+}
+
+.bg-blue-500 {
+  background-color: #3b82f6; /* Blue background color */
+}
+
+.ml-2 {
+  margin-left: 8px; /* Adjust margin as needed */
+}

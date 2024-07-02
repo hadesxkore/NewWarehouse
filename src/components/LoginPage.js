@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion'; // Import motion from Framer Motion
-import logo from '../images/logo.png';
+import logo from '../images/WhereHouseLogo.png';
 import googleIcon from '../images/google.png';
 import { auth, GoogleAuthProvider } from '../firebase';
 import backIcon from '../images/back.png'; // Import the back icon image
@@ -91,7 +91,7 @@ function LoginPage() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen" style={{ backgroundColor: '#eeeeee' }}>
-            <div className="logo-container mb-18">
+            <div className="logo-container mb-20">
                 <img src={logo} alt="Logo" className="logo" style={{ width: '200px' }} />
             </div>
             <button 

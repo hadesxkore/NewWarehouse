@@ -1,7 +1,7 @@
 import React, { useState } from 'react'; // Import useState
 import { useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion'; // Import motion from Framer Motion
-import logo from '../images/logo.png';
+import logo from '../images/WhereHouseLogo.png';
 import emailIcon from '../images/email.png';
 import { auth } from '../firebase';
 

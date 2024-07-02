@@ -4,7 +4,7 @@ import { auth, firestore } from '../firebase';
 import userProfileIcon from '../images/user.png';
 import logoutIcon from '../images/logout1.png';
 import chatIcon from '../images/chat.png';
-import logo from '../images/logo.png';
+import logo from '../images/WhereHouseLogo.png';
 import dashboardIcon from '../images/dashboard.png';
 import billIcon from '../images/bill.png';
 import leaseIcon from '../images/lease.png';
