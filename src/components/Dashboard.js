@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import placeholderIcon from '../images/placeholder.png'; // Import report icon
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth, firestore, storage, db } from '../firebase'; // Assuming you have Firebase storage
@@ -284,13 +285,13 @@ const handleSaveChanges = async () => {
 
 // Define a custom icon for the marker
 const locationIcon = new L.Icon({
-    iconUrl: 'https://leafletjs.com/examples/custom-icons/leaf-green.png',
-    iconSize: [38, 95],
-    iconAnchor: [22, 94],
-    popupAnchor: [-3, -76],
-    shadowUrl: 'https://leafletjs.com/examples/custom-icons/leaf-shadow.png',
-    shadowSize: [50, 64],
-    shadowAnchor: [4, 62]
+    iconUrl: placeholderIcon,
+    iconSize: [30, 30], // Set to the size of your custom icon
+    iconAnchor: [15, 30], // Adjust this to position the icon correctly
+    popupAnchor: [0, -30], // Adjust this to position the popup correctly
+    shadowUrl:placeholderIcon,
+    shadowSize: [30, 30], // Adjust to fit better with the icon size
+    shadowAnchor: [15, 30] // Adjust this to position the shadow correctly
 });
 const openRejectReasonModal = (reason) => {
     setRejectionReason(reason);
