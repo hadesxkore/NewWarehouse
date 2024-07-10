@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase';
+import { db, auth, firestore } from '../firebase'; // Import firebase and firestore
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { saveAs } from 'file-saver'; // Import saveAs function from file-saver library
@@ -9,13 +9,47 @@ function RentalAgreements() {
     const [selectedAgreement, setSelectedAgreement] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [successMessage, setSuccessMessage] = useState(false);
+    const [successMessage2, setSuccessMessage2] = useState(false);
     const [deletionSuccessMessage, setDeletionSuccessMessage] = useState(false);
     const [agreementsCount, setAgreementsCount] = useState(0); // State to store the count of rental agreements
     const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
     const [agreementToDelete, setAgreementToDelete] = useState(null);
+    const [terminationReason, setTerminationReason] = useState('');
+    const [otherReasonModalVisible, setOtherReasonModalVisible] = useState(false);
     const [currentUserRole, setCurrentUserRole] = useState(''); // State to store current user role (lessor or lessee)
     const [unauthorizedDeleteVisible, setUnauthorizedDeleteVisible] = useState(false); // State for unauthorized delete modal
 
+
+    const handleOtherReason = (agreementId) => {
+        setAgreementToDelete(agreementId);
+        setConfirmDeleteVisible(false); // Close delete confirmation modal
+        setOtherReasonModalVisible(true); // Open other reason modal
+    };
+
+    const handleTerminate = async () => {
+        try {
+            if (!agreementToDelete) {
+                console.error('No agreement ID provided for termination.');
+                return;
+            }
+    
+            await db.collection('rentalAgreement').doc(agreementToDelete).delete();
+    
+            // Remove the deleted agreement from the state
+            setRentalAgreements(prevAgreements => prevAgreements.filter(agreement => agreement.id !== agreementToDelete));
+    
+            // Show success message modal
+            setSuccessMessage2(true);
+            setOtherReasonModalVisible(false);
+    
+            console.log('Termination successful. Agreement deleted.');
+        } catch (error) {
+            console.error('Error terminating agreement:', error);
+        }
+    };
+    
+    
+    
     useEffect(() => {
         const currentUser = auth.currentUser;
         if (currentUser) {
@@ -194,7 +228,7 @@ function RentalAgreements() {
                                             onClick={() => showConfirmDeleteModal(agreement.id)}
                                             className="bg-red-500 text-white rounded-md px-6 py-2 hover:bg-red-600 transition duration-300"
                                         >
-                                            Delete
+                                            Terminate
                                         </button>
                                     </div>
                                 </div>
@@ -203,20 +237,62 @@ function RentalAgreements() {
                     </div>
 
                     {confirmDeleteVisible && (
-                        <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-                            <div className="absolute bg-white rounded-lg shadow-md p-8 y-8">
-                                <p className="mb-4 text-center text-lg">Are you sure you want to delete this agreement?</p>
-                                <div className="flex justify-center mt-6">
-                                    <button onClick={() => setConfirmDeleteVisible(false)} className="mr-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md">
-                                        Cancel
-                                    </button>
-                                    <button onClick={() => handleDelete(agreementToDelete)} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md">
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+                    <div className="absolute bg-white rounded-lg shadow-md p-8 y-8">
+                        <p className="mb-4 text-center text-lg">Are you sure you want to terminate this agreement?</p>
+                        <div className="flex justify-center mt-6">
+                            <button
+                                onClick={() => setConfirmDeleteVisible(false)}
+                                className="mr-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDelete(agreementToDelete)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
+                            >
+                                End Contract
+                            </button>
+                            <button
+                                onClick={() => handleOtherReason(agreementToDelete)}
+                                className="ml-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
+                            >
+                                Other
+                            </button>
                         </div>
-                    )}
+                    </div>
+                </div>
+            )}
+                 {otherReasonModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+        <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
+                <p className="mb-4 text-center text-lg">Enter termination reason:</p>
+                <textarea
+                    value={terminationReason}
+                    onChange={(e) => setTerminationReason(e.target.value)}
+                    className="block w-full border border-gray-300 rounded-md p-2 mb-4"
+                    rows="4"
+                    placeholder="Enter reason..."
+                ></textarea>
+                <div className="flex justify-center">
+                    <button
+                        onClick={() => setOtherReasonModalVisible(false)}
+                        className="mr-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleTerminate}
+                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
+                    >
+                        Terminate Agreement
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
 
 {unauthorizedDeleteVisible && (
     <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50 bg-gray-900 bg-opacity-50">
@@ -240,7 +316,29 @@ function RentalAgreements() {
                         </div>
                     )}
 
-                    {modalVisible && (
+
+
+
+{successMessage2 && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+        <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
+                <p className="text-lg font-semibold mb-4 text-green-400 text-center">Termination successful!</p>
+                <p className="mb-4 text-center">Termination Reason:</p>
+                <p className="text-gray-700 text-center">{terminationReason}</p>
+                <div className="flex justify-center mt-6">
+                    <button
+                        onClick={() => setSuccessMessage2(false)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+       {modalVisible && (
                         <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
                             <div className="absolute inset-0 flex items-center justify-center z-60">
                                 <div className="relative bg-white rounded-lg shadow-md p-4 max-w-3xl max-h-full overflow-y-auto">

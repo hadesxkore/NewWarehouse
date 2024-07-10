@@ -9,6 +9,7 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import placeholderIcon from '../images/placeholder.png'; // Import report icon
 
 import error1 from '../images/error1.png';
 import approve from '../images/approve.png';
@@ -284,13 +285,13 @@ const handleSaveChanges = async () => {
 
 // Define a custom icon for the marker
 const locationIcon = new L.Icon({
-    iconUrl: 'https://leafletjs.com/examples/custom-icons/leaf-green.png',
-    iconSize: [38, 95],
-    iconAnchor: [22, 94],
-    popupAnchor: [-3, -76],
-    shadowUrl: 'https://leafletjs.com/examples/custom-icons/leaf-shadow.png',
-    shadowSize: [50, 64],
-    shadowAnchor: [4, 62]
+    iconUrl: placeholderIcon,
+    iconSize: [30, 30], // Set to the size of your custom icon
+    iconAnchor: [15, 30], // Adjust this to position the icon correctly
+    popupAnchor: [0, -30], // Adjust this to position the popup correctly
+    shadowUrl:placeholderIcon,
+    shadowSize: [30, 30], // Adjust to fit better with the icon size
+    shadowAnchor: [15, 30] // Adjust this to position the shadow correctly
 });
 const openRejectReasonModal = (reason) => {
     setRejectionReason(reason);
@@ -1010,6 +1011,7 @@ return (
                         </div>
                         <div className="ml-4 text-lg font-semibold">Create Warehouse</div>
                     </div>
+                    <p className="bottom-2 left-4 text-m text-white text-end">For Lessor</p>
                     <hr className="my-4 border-gray-300" />
                     <div className="text-left text-sm text-gray-500">{currentDate}</div>
                 </div>
@@ -1022,6 +1024,7 @@ return (
         </div>
         <div className="ml-4 text-lg font-semibold">Created Warehouses</div>
     </div>
+    <p className="bottom-2 left-4 text-m text-white  text-end">For Lessor</p>
     <hr className="my-4 border-gray-300" />
     <div className="text-left text-sm text-gray-500">{currentDate}</div>
     <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full px-2 py-1 text-xs">
@@ -1030,19 +1033,28 @@ return (
 </div>
 
 {/* View Rented Warehouses Card */}
-<div className="bg-white p-6 border border-gray-300 rounded-lg shadow-lg w-80 relative card ">
+<div className="bg-white p-6 border border-gray-300 rounded-lg shadow-lg w-80 relative card">
     <div className="flex items-center p-4 cursor-pointer hover:bg-gray-100 rounded-t-lg" onClick={handleRentedWarehousesClick}>
+        
         <div className="flex-shrink-0 bg-gray-200 p-3 rounded-xl">
             <img src={rentIcon} alt="Rented Warehouse Icon" className="h-8 w-8" />
         </div>
+       
         <div className="ml-4 text-lg font-semibold">Rented Warehouses</div>
+      
     </div>
+    <p className="bottom-2 left-4 text-m text-gray-500 text-end">For Lessee</p>
     <hr className="my-4 border-gray-300" />
     <div className="text-left text-sm text-gray-500">{currentDate}</div>
     <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full px-2 py-1 text-xs">
         {rentedWarehouses.length}
     </div>
+    {/* Subtext for Lessee */}
+ 
 </div>
+
+
+{/* View Rentals Warehouses Card */}
 <div className="bg-white p-6 border border-gray-300 rounded-lg shadow-lg w-80 relative card">
             <div className="relative flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 rounded-t-lg" onClick={handleViewRentals}>
                 <div className="flex items-center">
@@ -1051,8 +1063,9 @@ return (
                     </div>
                     <div className="ml-4 text-lg font-semibold">View Rentals</div>
                 </div>
+              
             </div>
-
+            <p className="bottom-2 left-4 text-m text-gray-500 text-end">For Lessor</p>
          
     <hr className="my-4 border-gray-300" />
     <div className="text-left text-sm text-gray-500">{currentDate}</div>

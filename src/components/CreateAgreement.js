@@ -12,7 +12,8 @@ function CreateAgreement() {
     const [error, setError] = useState(null); // State for error message
     const [showErrorModal, setShowErrorModal] = useState(false); // State for showing error modal
     const [hasUploadedWarehouses, setHasUploadedWarehouses] = useState(false); // State to track if user has uploaded warehouses
-
+    const [showEditModal, setShowEditModal] = useState(false); // State for showing edit modal
+    const [editableTerms, setEditableTerms] = useState(''); // State for editable terms
     const [formData, setFormData] = useState({
         warehouse_id: initialFormData.id || '',
         warehouseName: initialFormData.name || '',
@@ -122,9 +123,17 @@ function CreateAgreement() {
                 Lessee shall maintain leased property and the fixtures in good order, repair, and appearance, and repair parts of leased property including without limitation, all interior and exterior, replacements to the roof, foundations, exterior walls, building systems, HVAC systems, parking areas, sidewalks, water, sewer and gas connections, and pipes.
             `;
 
-            const agreementData = { ...formData, terms, userId: currentUser.uid };
-            await db.collection('rentalAgreement').add(agreementData);
-            navigate('/rental-agreements');
+            if (currentUser) {
+                const agreementData = {
+                    ...formData,
+                    terms: editableTerms, // Update terms with editableTerms
+                    userId: currentUser.uid,
+                };
+                await db.collection('rentalAgreement').add(agreementData);
+                navigate('/rental-agreements');
+            } else {
+                console.error('User is not authenticated.');
+            }
         } else {
             console.error('User is not authenticated.');
         }
@@ -134,39 +143,79 @@ function CreateAgreement() {
         setShowErrorModal(true); // Show modal
     }
 };
+useEffect(() => {
+    const checkUserWarehouses = async () => {
+        try {
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                const warehousesSnapshot = await db.collection('warehouses')
+                    .where('userUid', '==', currentUser.uid)
+                    .get();
 
-    useEffect(() => {
-        const { start_date, end_date, rentAmount, depositAmount } = formData;
-        const terms = `
-            Terms and Conditions
-            1. Description of the Premises
-            This Rental Agreement has been signed by the parties for the purpose of leasing the property at the address stated above. The leased property under this Agreement can only be used for residential purposes.
+                if (!warehousesSnapshot.empty) {
+                    setHasUploadedWarehouses(true); // User has uploaded warehouses
+                }
+            }
+        } catch (error) {
+            console.error('Error checking user warehouses: ', error);
+        }
+    };
 
-            2. Term of the Agreement
-            The commencement date of the Rental Agreement is ${start_date} and the expiration date is ${end_date}.
+    checkUserWarehouses();
+}, []);
+useEffect(() => {
+    const { start_date, end_date, rentAmount, depositAmount } = formData;
+    const terms = `
+      
+        1. Description of the Premises
+        This Rental Agreement has been signed by the parties for the purpose of leasing the property at the address stated above. The leased property under this Agreement can only be used for residential purposes.
 
-            This contract expires automatically at the end of this period. The parties may decide to continue the lease under the same conditions, or they may sign a new agreement.
+        2. Term of the Agreement
+        The commencement date of the Rental Agreement is ${start_date} and the expiration date is ${end_date}.
 
-            3. Rent and Payment Method
-            The monthly rental fee under this Agreement is ${rentAmount}. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
+        This contract expires automatically at the end of this period. The parties may decide to continue the lease under the same conditions, or they may sign a new agreement.
 
-            4. Security Deposit
-            Security deposit of ${depositAmount ? depositAmount.toLocaleString() : ''} shall be paid to Lessor at the date of signature of this Agreement. After the expiry of the Agreement, the deposit shall be refunded after the inspection to be made on the leased property. Damages and losses incurred on the real estate and the fixtures to be listed below are set off from the deposit.
+        3. Rent and Payment Method
+        The monthly rental fee under this Agreement is ${rentAmount}. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
 
-            5. Fixtures and Maintenance
-            Lessee shall maintain leased property and the fixtures in good order, repair, and appearance, and repair parts of leased property including without limitation, all interior and exterior, replacements to the roof, foundations, exterior walls, building systems, HVAC systems, parking areas, sidewalks, water, sewer and gas connections, and pipes.
-        `;
-        setFormData(prevState => ({
-            ...prevState,
-            terms
-        }));
-    }, [formData.start_date, formData.end_date, formData.rentAmount, formData.depositAmount]);
+        4. Security Deposit
+        Security deposit of ${depositAmount ? depositAmount.toLocaleString() : ''} shall be paid to Lessor at the date of signature of this Agreement. After the expiry of the Agreement, the deposit shall be refunded after the inspection to be made on the leased property. Damages and losses incurred on the real estate and the fixtures to be listed below are set off from the deposit.
 
+        5. Fixtures and Maintenance
+        Lessee shall maintain leased property and the fixtures in good order, repair, and appearance, and repair parts of leased property including without limitation, all interior and exterior, replacements to the roof, foundations, exterior walls, building systems, HVAC systems, parking areas, sidewalks, water, sewer and gas connections, and pipes.
+    `;
+    setEditableTerms(terms); // Initialize editableTerms with the initial terms
+}, [formData.start_date, formData.end_date, formData.rentAmount, formData.depositAmount]);
+
+
+const handleEditTerms = () => {
+    setShowEditModal(true);
+};
+
+const handleSaveTerms = async () => {
+    try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            const agreementData = {
+                ...formData,
+                terms: editableTerms, // Update terms with editableTerms
+                userId: currentUser.uid,
+            };
+            await db.collection('rentalAgreement').add(agreementData);
+            navigate('/rental-agreements');
+        } else {
+            console.error('User is not authenticated.');
+        }
+    } catch (error) {
+        console.error('Error creating rental agreement: ', error);
+        // Handle error state
+    }
+};
     return (
         <div className="flex flex-col min-h-screen">
             <Navbar />
             <div className="flex flex-grow">
-                <Sidebar />
+            <Sidebar />
                 <div className="flex-grow p-8">
                     <h2 className="text-4xl font-semibold mb-8 mt-4 text-center">Create New Rental Agreement</h2>
                     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8">
@@ -206,6 +255,18 @@ function CreateAgreement() {
                                 required
                             />
                         </div>
+                        <div className="flex flex-col">
+                                <label className="text-gray-700 mb-2">Rent Period</label>
+                                <select
+                                    name="rentFrequency"
+                                    value={formData.rentFrequency}
+                                    onChange={handleChange}
+                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+                                >
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
+                            </div>
                         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                             <div className="flex flex-col">
                                 <label className="text-gray-700 mb-2">Start Date</label>
@@ -230,7 +291,7 @@ function CreateAgreement() {
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                             <div className="flex flex-col">
                                 <label className="text-gray-700 mb-2">Rent Amount</label>
                                 <input
@@ -243,18 +304,6 @@ function CreateAgreement() {
                                 />
                             </div>
                             <div className="flex flex-col">
-                                <label className="text-gray-700 mb-2">Rent Period</label>
-                                <select
-                                    name="rentFrequency"
-                                    value={formData.rentFrequency}
-                                    onChange={handleChange}
-                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
-                                >
-                                    <option value="monthly">Monthly</option>
-                                    <option value="yearly">Yearly</option>
-                                </select>
-                            </div>
-                            <div className="flex flex-col">
                                 <label className="text-gray-700 mb-2">Deposit Amount</label>
                                 <input
                                     type="number"
@@ -262,54 +311,75 @@ function CreateAgreement() {
                                     value={formData.depositAmount}
                                     onChange={handleChange}
                                     className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+                                    required
                                 />
                             </div>
                         </div>
-                        {hasUploadedWarehouses && ( // Conditionally render the terms section
-                            <div className="mt-8 bg-gray-100 p-6 rounded-lg shadow-md">
-                                <h3 className="text-2xl font-semibold mb-4">Terms and Conditions</h3>
-                                <p className="text-gray-700 mb-4">
-                                    <span className="font-semibold">1. Description of the Premises</span>
-                                    <br />
-                                    This Rental Agreement has been signed by the parties for the purpose of leasing the property at the address stated above. The leased property under this Agreement can only be used for residential purposes.
-                                </p>
-                                <hr className="my-4" />
-                                <p className="text-gray-700 mb-4">
-                                    <span className="font-semibold">2. Term of the Agreement</span>
-                                    <br />
-                                    The commencement date of the Rental Agreement is <strong>{formData.start_date}</strong> and the expiration date is <strong>{formData.end_date}</strong>.
-                                    <br />
-                                    This contract expires automatically at the end of this period. The parties may decide to continue the lease under the same conditions, or they may sign a new agreement.
-                                </p>
-                                <hr className="my-4" />
-                                <p className="text-gray-700 mb-4">
-                                    <span className="font-semibold">3. Rent and Payment Method</span>
-                                    <br />
-                                    The monthly rental fee under this Agreement is <strong>{formData.rentAmount !== undefined ? `₱${formData.rentAmount.toLocaleString()}` : ''}</strong>. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
-                                </p>
-                                <hr className="my-4" />
-                                <p className="text-gray-700 mb-4">
-                                    <span className="font-semibold">4. Security Deposit</span>
-                                    <br />
-                                    Security deposit of <strong>{formData.depositAmount !== undefined ? `₱${formData.depositAmount.toLocaleString()}` : ''}</strong> shall be paid to Lessor at the date of signature of this Agreement. After the expiry of the Agreement, the deposit shall be refunded after the inspection to be made on the leased property. Damages and losses incurred on the real estate and the fixtures to be listed below are set off from the deposit.
-                                </p>
-                                <hr className="my-4" />
-                                <p className="text-gray-700 mb-4">
-                                    <span className="font-semibold">5. Fixtures and Maintenance</span>
-                                    <br />
-                                    Lessee shall maintain leased property and the fixtures in good order, repair, and appearance, and repair parts of leased property including without limitation, all interior and exterior, replacements to the roof, foundations, exterior walls, building systems, HVAC systems, parking areas, sidewalks, water, sewer and gas connections, and pipes.
-                                </p>
-                            </div>
-                        )}
-                        <div className="flex justify-center">
+  {/* Terms section */}
+  {hasUploadedWarehouses && (
+<div className="mt-8 bg-gray-100 p-6 rounded-lg shadow-md h-80 overflow-y-auto">
+    <h3 className="text-2xl font-semibold mb-4">Terms and Conditions</h3>
+    {editableTerms.split('\n').map((paragraph, index) => (
+        <React.Fragment key={index}>
+            {paragraph.trim() && (
+                <div className="mb-4">
+                    <p className="text-gray-700">
+                        <span className="font-semibold">{paragraph.split('.')[0]}.</span> {paragraph.slice(paragraph.split('.')[0].length + 1)}
+                    </p>
+                    {index !== editableTerms.split('\n').length - 1 && <hr className="my-4" />}
+                </div>
+            )}
+        </React.Fragment>
+    ))}
+</div>
+)}
+
+                        <div className="flex flex-col">
+                           
                             <button
-                                type="submit"
-                                className="bg-blue-500 text-white rounded-md px-16 py-4 mt-10 hover:bg-blue-600"
+                                type="button"
+                                onClick={handleEditTerms}
+                                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md"
                             >
-                                Create Agreement
+                                Edit Terms
                             </button>
                         </div>
+                        <button type="submit" className="mt-8 px-6 py-4 bg-green-500 text-white rounded-md">
+                            Create Agreement
+                        </button>
                     </form>
+                    {showEditModal && hasUploadedWarehouses && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+        <div className="bg-white p-8 rounded-md shadow-md max-w-screen-lg w-full mx-4">
+            <h3 className="text-2xl font-semibold mb-4">Edit Terms</h3>
+            <textarea
+                value={editableTerms}
+                onChange={(e) => setEditableTerms(e.target.value)}
+                rows="10"
+                className="w-full border border-gray-300 rounded-md px-4 py-2 mb-4 resize-none"
+                style={{ minHeight: '200px' }}
+                placeholder="Edit terms here..."
+            />
+            <div className="flex justify-end">
+                <button
+                    onClick={handleSaveTerms}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md mr-2 hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
+                >
+                    Save
+                </button>
+                <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 bg-gray-300 text-black rounded-md hover:bg-gray-400 focus:outline-none focus:bg-gray-400"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
+
 
                     {/* Error Modal */}
                     {showErrorModal && (
