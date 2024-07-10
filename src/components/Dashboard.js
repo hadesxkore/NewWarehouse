@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import placeholderIcon from '../images/placeholder.png'; // Import report icon
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth, firestore, storage, db } from '../firebase'; // Assuming you have Firebase storage
@@ -9,7 +10,7 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import placeholderIcon from '../images/placeholder.png'; // Import report icon
+
 
 import error1 from '../images/error1.png';
 import approve from '../images/approve.png';
