@@ -114,6 +114,8 @@ function RentalAgreements() {
             });
 
         setConfirmDeleteVisible(false); // Hide the confirmation modal
+        setSuccessMessage2(true);
+
     };
 
     const handleViewClick = (agreement) => {
@@ -237,32 +239,34 @@ function RentalAgreements() {
                     </div>
 
                     {confirmDeleteVisible && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-                    <div className="absolute bg-white rounded-lg shadow-md p-8 y-8">
-                        <p className="mb-4 text-center text-lg">Are you sure you want to terminate this agreement?</p>
-                        <div className="flex justify-center mt-6">
-                            <button
-                                onClick={() => setConfirmDeleteVisible(false)}
-                                className="mr-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => handleDelete(agreementToDelete)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
-                            >
-                                End Contract
-                            </button>
-                            <button
-                                onClick={() => handleOtherReason(agreementToDelete)}
-                                className="ml-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
-                            >
-                                Other
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+        <div className="absolute bg-white rounded-lg shadow-md p-8 y-8">
+            <p className="mb-4 text-center text-lg">Are you sure you want to terminate this agreement?</p>
+            <textarea
+                value={terminationReason}
+                onChange={(e) => setTerminationReason(e.target.value)}
+                className="block w-full border border-gray-300 rounded-md p-2 mb-4"
+                rows="4"
+                placeholder="Enter termination reason...(Optional)"
+            ></textarea>
+            <div className="flex justify-center mt-6">
+                <button
+                    onClick={() => setConfirmDeleteVisible(false)}
+                    className="mr-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md"
+                >
+                    Cancel
+                </button>
+                <button
+                    onClick={() => handleDelete(agreementToDelete)}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
+                >
+                    End Contract
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
                  {otherReasonModalVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
         <div className="absolute inset-0 flex items-center justify-center">
@@ -286,7 +290,7 @@ function RentalAgreements() {
                         onClick={handleTerminate}
                         className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
                     >
-                        Terminate Agreement
+                        End Contract
                     </button>
                 </div>
             </div>
@@ -338,6 +342,7 @@ function RentalAgreements() {
         </div>
     </div>
 )}
+
        {modalVisible && (
                         <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
                             <div className="absolute inset-0 flex items-center justify-center z-60">

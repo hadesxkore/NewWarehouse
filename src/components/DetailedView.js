@@ -13,6 +13,8 @@ import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import Navbar from './Navbar';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import warnIcon from '../images/warn.png'; // Import report icon
+
 import markerRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import './DetailedView.css';
 import { firestore } from '../firebase'; // Assuming you have Firebase initialized properly
@@ -37,13 +39,35 @@ const DetailView = () => {
     const [position, setPosition] = useState([0, 0]); // Initial position
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [mapLoaded, setMapLoaded] = useState(false);
+    const [showOwnerNotificationModal, setShowOwnerNotificationModal] = useState(false);
 
     const [error, setError] = useState(null);
 
-    const handleRentButtonClick = () => {
-        setShowConfirmationModal(true);
+    const handleRentButtonClick = async () => {
+        const user = auth.currentUser;
+        if (user && (user.uid === warehouse.userUid)) {
+            setShowOwnerNotificationModal(true);
+        } else {
+            setShowConfirmationModal(true);
+        }
     };
-   
+    const OwnerNotificationModal = ({ show, onClose }) => {
+        if (!show) return null;
+    
+        return (
+            <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-black bg-opacity-50">
+            <div className="bg-white p-8 rounded-lg flex flex-col items-center">
+                <img src={warnIcon} alt="Warning Icon" className="w-12 h-12 mb-4" />
+                <p className="text-lg mb-4">This warehouse is registered under your ownership.</p>
+                <div className="flex justify-center">
+                    <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={onClose}>OK</button>
+                </div>
+            </div>
+        </div>
+        );
+    };
+    
+    
 // Define a custom icon for the marker
 const locationIcon = new L.Icon({
     iconUrl: placeholderIcon,
@@ -359,6 +383,7 @@ const handleCloseModal = () => {
         Rent
     </button>
  
+         
 
     <button 
         className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 px-12 rounded shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1"
@@ -373,6 +398,11 @@ const handleCloseModal = () => {
 
                         </div>
                     </div>
+                       {/* Confirmation modal */}
+            <ConfirmationModal show={showConfirmationModal} onClose={handleRentConfirmation} />
+            
+            {/* Owner notification modal */}
+            <OwnerNotificationModal show={showOwnerNotificationModal} onClose={() => setShowOwnerNotificationModal(false)} />
                    <div className="md:flex justify-between mt-8">
     <div className="w-full md:w-3/4 lg:w-4/2 md:flex justify-center flex-col items-left">
         <div className="text-lg mb-2"><strong>LOCATION:</strong> {warehouse.address}</div>
