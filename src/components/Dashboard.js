@@ -1214,7 +1214,7 @@ return (
                 { id: "ownershipDocuments", label: "Ownership Documents" },
                 { id: "previousTenancyDetails", label: "Previous Tenancy Details (if applicable)" },
                 { id: "businessPermit", label: "Business Permit" },
-                { id: "buildingPermit", label: "Building Permit" },
+                { id: "buildingPermit", label: "Sanitary Permit" },
                 { id: "maintenanceRecords", label: "Maintenance Records" },
             ].map((field) => (
                 <div key={field.id}>
