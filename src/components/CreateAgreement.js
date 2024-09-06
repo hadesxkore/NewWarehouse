@@ -34,13 +34,56 @@ function CreateAgreement() {
         }
     }, [initialFormData]);
 
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+   // Define calculateMonthDifference outside handleChange
+const calculateMonthDifference = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const years = end.getFullYear() - start.getFullYear();
+    const months = (years * 12) + (end.getMonth() - start.getMonth());
+    return months + 1; // +1 to include the start month in the calculation
+};
+
+const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Update the form data
+    const updatedFormData = {
+        ...formData,
+        [name]: value
     };
 
+    // Calculate the RentAmount if start_date or end_date changes
+    if (name === "start_date" || name === "end_date") {
+        const { start_date, end_date } = updatedFormData;
+
+        if (start_date && end_date) {
+            const months = calculateMonthDifference(start_date, end_date);
+            const baseRentAmount = parseFloat(initialFormData.price) || 0; // Use the base rent amount from initialFormData
+            const rentAmount = baseRentAmount * months;
+
+            updatedFormData.rentAmount = rentAmount;
+            updatedFormData.depositAmount = rentAmount * 0.5; // Set deposit amount to 50% of rent amount
+        }
+    } else if (name === "price") {
+        // Update rentAmount and depositAmount when price changes
+        const baseRentAmount = parseFloat(value) || 0;
+        const { start_date, end_date } = updatedFormData;
+
+        if (start_date && end_date) {
+            const months = calculateMonthDifference(start_date, end_date);
+            const rentAmount = baseRentAmount * months;
+
+            updatedFormData.rentAmount = rentAmount;
+            updatedFormData.depositAmount = rentAmount * 0.5; // Set deposit amount to 50% of rent amount
+        } else {
+            updatedFormData.rentAmount = baseRentAmount * (updatedFormData.months || 1);
+            updatedFormData.depositAmount = updatedFormData.rentAmount * 0.5;
+        }
+    }
+
+    // Update the state with the new form data
+    setFormData(updatedFormData);
+};
 
     useEffect(() => {
         const checkUserWarehouses = async () => {
@@ -62,6 +105,7 @@ function CreateAgreement() {
 
         checkUserWarehouses();
     }, []);
+    
    const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -269,16 +313,17 @@ const handleSaveTerms = async () => {
                             </div>
                         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                             <div className="flex flex-col">
-                                <label className="text-gray-700 mb-2">Start Date</label>
-                                <input
-                                    type="date"
-                                    name="start_date"
-                                    value={formData.start_date}
-                                    onChange={handleChange}
-                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                            </div>
+                            <label className="text-gray-700 mb-2">Start Date</label>
+    <input
+        type="date"
+        name="start_date"
+        value={formData.start_date}
+        onChange={handleChange}
+        className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+        min={new Date().toISOString().split('T')[0]} // Set minimum date to today
+        required
+    />
+</div>
                             <div className="flex flex-col">
                                 <label className="text-gray-700 mb-2">End Date</label>
                                 <input
@@ -287,6 +332,8 @@ const handleSaveTerms = async () => {
                                     value={formData.end_date}
                                     onChange={handleChange}
                                     className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+                                    min={new Date().toISOString().split('T')[0]} // Set minimum date to today
+
                                     required
                                 />
                             </div>
@@ -311,7 +358,10 @@ const handleSaveTerms = async () => {
                                     value={formData.depositAmount}
                                     onChange={handleChange}
                                     className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+                                    placeholder="(50%)"
+
                                     required
+                                    
                                 />
                             </div>
                         </div>
