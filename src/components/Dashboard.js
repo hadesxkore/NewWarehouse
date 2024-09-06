@@ -803,7 +803,7 @@ const confirmMarkAsRented = async () => {
             throw new Error('Warehouse ID is undefined.');
         }
 
-        // Get the rented warehouse details to find the ownerUid
+        // Get the rented warehouse details to find the ownerUid and userId
         const rentedWarehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouseId);
         const rentedWarehouseDoc = await rentedWarehouseRef.get();
 
@@ -813,7 +813,12 @@ const confirmMarkAsRented = async () => {
 
         const rentedWarehouseData = rentedWarehouseDoc.data();
         const ownerUid = rentedWarehouseData.ownerUid;
-        const warehouseId = rentedWarehouseData.warehouseId; // Make sure to add this field in the rentedWarehouses
+        const warehouseId = rentedWarehouseData.warehouseId; // Make sure this field exists
+        const lesseeUserId = rentedWarehouseData.rentedBy?.userId; // Fetch lessee userId
+
+        if (!lesseeUserId) {
+            throw new Error('Lessee userId is undefined.');
+        }
 
         // Update the status of the rented warehouse to 'Rented'
         await rentedWarehouseRef.update({
@@ -833,12 +838,14 @@ const confirmMarkAsRented = async () => {
         // Assuming there's only one warehouse per ownerUid
         const warehouseDoc = querySnapshot.docs[0];
 
-        // Update the status of the warehouse to 'Rented'
+        // Update the status of the warehouse to 'Rented', add lesseeUserId, and add warehouseId
         await warehouseDoc.ref.update({
-            rentStatus: 'Rented'
+            rentStatus: 'Rented',
+            userId: lesseeUserId, // Add lessee's userId to the warehouse document
+            warehouseId: selectedWarehouseId // Add the warehouseId to the warehouse document
         });
 
-        console.log('Warehouse marked as rented successfully.');
+        console.log('Warehouse marked as rented, lesseeUserId added, and warehouseId updated successfully.');
 
         // Close the confirmation modal
         setShowConfirmationModal(false);
@@ -850,6 +857,7 @@ const confirmMarkAsRented = async () => {
         // You can show an error message or log it
     }
 };
+
 
 useEffect(() => {
     const checkNewRentals = async () => {

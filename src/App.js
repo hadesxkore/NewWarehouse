@@ -18,6 +18,7 @@ import Analytics from './components/Analytics';
 import SuperadminLogin from './components/SuperadminLogin';
 import ChatPage from './components/ChatPage';
 import DetailedView from './components/DetailedView';
+import Warehouses from './components/Warehouses'; // Import the Warehouses component
 import Footer from './components/Footer';
 import { auth, firestore } from './firebase';
 import Navigation from './components/Navigation';
@@ -71,6 +72,9 @@ function App() {
                         <Route path="/users" element={<Users />} />
                         <Route path="/reports" element={<Reports />} />
                         <Route path="/Analytics" element={<Analytics />} />
+                         {/* Add the Warehouses component route */}
+                         <Route path="/warehouses" element={<Warehouses />} />
+                        
                         <Route path="/superadmin-registration" element={<SuperadminRegistration />} />
                         <Route path="/WarehouseCard" element={<WarehouseCard />} />
                         {user && user.userData && user.userData.role === 'admin' ? (
@@ -86,6 +90,7 @@ function App() {
                         <Route path="/conversation/:conversationId" element={<Conversation />} />
                         {/* Add the ChatPage component route */}
                         <Route path="/chat" element={<ChatPage />} />
+                        
                     </Routes>
                 </main>
              
