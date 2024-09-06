@@ -32,14 +32,21 @@ import './homepage.css';
 // Function to fetch verified warehouses
 const fetchVerifiedWarehouses = async (setVerifiedWarehouses) => {
     try {
-        const warehousesRef = firestore.collection('warehouses').where('status', '==', 'verified');
+        const warehousesRef = firestore.collection('warehouses')
+            .where('status', '==', 'verified'); // Fetch only verified warehouses
+
         const snapshot = await warehousesRef.get();
-        const verifiedWarehousesData = snapshot.docs.map(doc => doc.data());
+        const verifiedWarehousesData = snapshot.docs
+            .map(doc => doc.data())
+            .filter(warehouse => warehouse.rentStatus !== 'Rented'); // Filter out rented warehouses
+
         setVerifiedWarehouses(verifiedWarehousesData);
     } catch (error) {
         console.error('Error fetching verified warehouses:', error);
     }
 };
+
+
 
 function HomePage() {
     const navigate = useNavigate(); // Initialize useNavigate

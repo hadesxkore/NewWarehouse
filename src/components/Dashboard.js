@@ -795,8 +795,7 @@ const transferToLeaseAgreement = async () => {
         }
     }
 };
-   // Function to confirm marking a warehouse as rented
-   const confirmMarkAsRented = async () => {
+const confirmMarkAsRented = async () => {
     try {
         console.log('Warehouse ID in markAsRented:', selectedWarehouseId); // Debug log
 
@@ -804,10 +803,39 @@ const transferToLeaseAgreement = async () => {
             throw new Error('Warehouse ID is undefined.');
         }
 
-        const warehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouseId);
+        // Get the rented warehouse details to find the ownerUid
+        const rentedWarehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouseId);
+        const rentedWarehouseDoc = await rentedWarehouseRef.get();
 
-        await warehouseRef.update({
+        if (!rentedWarehouseDoc.exists) {
+            throw new Error('Rented warehouse document does not exist.');
+        }
+
+        const rentedWarehouseData = rentedWarehouseDoc.data();
+        const ownerUid = rentedWarehouseData.ownerUid;
+        const warehouseId = rentedWarehouseData.warehouseId; // Make sure to add this field in the rentedWarehouses
+
+        // Update the status of the rented warehouse to 'Rented'
+        await rentedWarehouseRef.update({
             status: 'Rented'
+        });
+
+        console.log('Rented warehouse marked as rented successfully.');
+
+        // Find the corresponding warehouse document using ownerUid
+        const warehousesRef = firestore.collection('warehouses');
+        const querySnapshot = await warehousesRef.where('userUid', '==', ownerUid).get();
+
+        if (querySnapshot.empty) {
+            throw new Error('No matching warehouse found for the given ownerUid.');
+        }
+
+        // Assuming there's only one warehouse per ownerUid
+        const warehouseDoc = querySnapshot.docs[0];
+
+        // Update the status of the warehouse to 'Rented'
+        await warehouseDoc.ref.update({
+            rentStatus: 'Rented'
         });
 
         console.log('Warehouse marked as rented successfully.');
@@ -817,11 +845,12 @@ const transferToLeaseAgreement = async () => {
 
         // Show success message or navigate to another page
     } catch (error) {
-        console.error('Error marking warehouse as rented:', error);
+        console.error('Error updating warehouse status:', error);
         // Handle error
         // You can show an error message or log it
     }
 };
+
 useEffect(() => {
     const checkNewRentals = async () => {
         try {
