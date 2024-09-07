@@ -52,6 +52,7 @@ import meetingRoomIcon from '../images/meeting-room.png';
 import securityCameraIcon from '../images/security-camera.png';
 import keyIcon from '../images/key.png';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents  } from 'react-leaflet';
+import successGif from "../images/Success.gif"; // Ensure the path is correct
 
 import axios from 'axios';
 import L from 'leaflet';    
@@ -65,6 +66,7 @@ function Dashboard() {
     const [showMapModal, setShowMapModal] = useState(false);
     const [center, setCenter] = useState([51.505, -0.09]);
     const [mapKey, setMapKey] = useState(0); // Key for forcing remount of MapContainer
+    const [showSuccessGif, setShowSuccessGif] = useState(false);
 
     // Inside your component
 const [searchText, setSearchText] = useState('');
@@ -101,6 +103,8 @@ const [formData, setFormData] = useState({
     warehouseName: '',
     rentAmount: ''
 });
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const [warehouseToDelete, setWarehouseToDelete] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [newRentals, setNewRentals] = useState(0);
     const [selectedAmenities, setSelectedAmenities] = useState([]);
@@ -163,6 +167,7 @@ const [formData, setFormData] = useState({
         const [rejectionReason, setRejectionReason] = useState('');
         const [loadingWarehouses, setLoadingWarehouses] = useState(true);
         const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+        const [errorMessage, setErrorMessage] = useState('');
 
         const [successMessage, setSuccessMessage] = useState('');
         const [newAddress, setNewAddress] = useState('');
@@ -850,12 +855,22 @@ const confirmMarkAsRented = async () => {
         // Close the confirmation modal
         setShowConfirmationModal(false);
 
-        // Show success message or navigate to another page
+        // Show success GIF
+        setShowSuccessGif(true); // Trigger success GIF
+
+        // Automatically close the success GIF after 1 second
+        setTimeout(() => {
+            setShowSuccessGif(false);
+        }, 1400); // 1000 milliseconds = 1 second
+
     } catch (error) {
         console.error('Error updating warehouse status:', error);
-        // Handle error
-        // You can show an error message or log it
+        // Handle error: Show an error message or log it
     }
+};
+
+const handleCloseSuccessGif = () => {
+    setShowSuccessGif(false);
 };
 
 
@@ -997,39 +1012,46 @@ useEffect(() => {
     const handleClose = () => { // Define handleClose function
         setShowCarousel(false);
     };
-// Function to handle deletion of warehouse data
-const handleDeleteWarehouse = async (warehouse) => {
-    // Confirm deletion
-    if (window.confirm("Are you sure you want to delete this warehouse?")) {
-        try {
-            // Delete warehouse data from Firestore
-            await firestore.collection("warehouses").doc(warehouse.id).delete();
 
-            // Delete images associated with the warehouse from Firebase Storage
-            for (const imageUrl of warehouse.images) {
-                const imageRef = storage.refFromURL(imageUrl);
-                await imageRef.delete();
+    const handleDeleteWarehouse = (warehouse) => {
+        setWarehouseToDelete(warehouse);
+        setShowDeleteModal(true);
+    };
+    
+
+    const confirmDelete = async () => {
+        if (warehouseToDelete) {
+            try {
+                // Delete warehouse data from Firestore
+                await firestore.collection("warehouses").doc(warehouseToDelete.id).delete();
+    
+                // Delete images associated with the warehouse from Firebase Storage
+                for (const imageUrl of warehouseToDelete.images) {
+                    const imageRef = storage.refFromURL(imageUrl);
+                    await imageRef.delete();
+                }
+    
+                // Delete videos associated with the warehouse from Firebase Storage
+                for (const videoUrl of warehouseToDelete.videos) {
+                    const videoRef = storage.refFromURL(videoUrl);
+                    await videoRef.delete();
+                }
+    
+                // Remove the deleted warehouse from the state
+                setUserWarehouses((prevWarehouses) => prevWarehouses.filter((w) => w.id !== warehouseToDelete.id));
+    
+                // Show success message
+                setSuccessMessage("Warehouse deleted successfully.");
+            } catch (error) {
+                console.error("Error deleting warehouse:", error);
+                // Show error message
+                setErrorMessage("An error occurred while deleting the warehouse.");
+            } finally {
+                setShowDeleteModal(false);
+                setWarehouseToDelete(null);
             }
-
-            // Delete videos associated with the warehouse from Firebase Storage
-            for (const videoUrl of warehouse.videos) {
-                const videoRef = storage.refFromURL(videoUrl);
-                await videoRef.delete();
-            }
-
-            // Remove the deleted warehouse from the state
-            setUserWarehouses((prevWarehouses) => prevWarehouses.filter((w) => w.id !== warehouse.id));
-
-            // Show success message
-            setSuccessMessage("Warehouse deleted successfully.");
-        } catch (error) {
-            console.error("Error deleting warehouse:", error);
-            // Show error message
-            alert("An error occurred while deleting the warehouse.");
         }
-    }
-};
-
+    };
 return (
     <div>
            <Navbar />
@@ -1464,7 +1486,35 @@ return (
                     </div>
                 </div>
             ))}
-            
+{/* Confirmation Modal */}
+{showDeleteModal && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full relative overflow-hidden flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </div>
+            <p className="text-lg font-semibold text-red-800 mb-4 text-center">Are you sure you want to delete this warehouse?</p>
+            <div className="flex space-x-4">
+                <button 
+                    onClick={confirmDelete}
+                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 ease-in-out"
+                >
+                    Delete
+                </button>
+                <button 
+                    onClick={() => setShowDeleteModal(false)}
+                    className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 ease-in-out"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
              {isEditModalOpen && currentWarehouse && (
                 <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
                     <div className="relative bg-white p-6 rounded-lg shadow-md w-full max-w-2xl">
@@ -1863,6 +1913,19 @@ return (
                     </div>
                 </div>
             )}
+
+              {/* Success GIF Modal */}
+              {showSuccessGif && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white rounded-lg shadow-2xl p-4 relative max-w-xs">
+                        <img src={successGif} alt="Success" className="w-32 h-32 object-cover mx-auto" />
+                        <div className="text-center mt-2">
+                            <h2 className="text-lg font-bold text-green-600">Success!</h2>
+                            <p className="text-sm">The warehouse has been marked as rented.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 {/* Error Modal for No Lease Agreement */}
 {showErrorModal && (
     <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50">
@@ -1912,13 +1975,37 @@ return (
                 </div>
             )}
         </div>
-        {/* Success Message */}
-        {successMessage && (
-            <div className="success-message">
-                <p>{successMessage}</p>
-                <button onClick={closeSuccessMessage} className="absolute top-0 right-0 mr-2 mt-2 text-white">&times;</button>
+       {/* Success Message Modal */}
+{successMessage && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full relative overflow-hidden">
+            <button 
+                onClick={closeSuccessMessage} 
+                className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-1.5 transition-colors duration-200 ease-in-out"
+                aria-label="Close"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div className="flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <p className="text-lg font-semibold text-green-800 mb-4">{successMessage}</p>
+                <button 
+                    onClick={closeSuccessMessage} 
+                    className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 ease-in-out"
+                >
+                    Close
+                </button>
             </div>
-        )}
+        </div>
+    </div>
+)}
+
 
         {/* Logout Confirmation Modal */}
         {showConfirmation && (

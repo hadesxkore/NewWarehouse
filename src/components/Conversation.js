@@ -21,6 +21,7 @@ const Conversation = () => {
     const [currentUserId, setCurrentUserId] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [ownerInfo, setOwnerInfo] = useState(null); // Owner's additional information
+    const [ownerRole, setOwnerRole] = useState(''); // New state for owner role
 
     const [imageUrl, setImageUrl] = useState('');
     const [deleteMessageId, setDeleteMessageId] = useState(null); // Track message ID for deletion confirmation
@@ -35,11 +36,20 @@ const Conversation = () => {
             if (conversationSnapshot.exists) {
                 const conversationData = conversationSnapshot.data();
                 setConversation(conversationData);
-                
+
+                // Determine the role based on rentedWarehouses collection
                 const ownerParticipantId = conversationData.participants.find(participant => participant !== currentUserId);
+                const rentedWarehousesRef = firestore.collection('rentedWarehouses');
+                const rentedWarehousesSnapshot = await rentedWarehousesRef.where('ownerUid', '==', ownerParticipantId).get();
+                
+                if (!rentedWarehousesSnapshot.empty) {
+                    setOwnerRole('Lessor');
+                } else {
+                    setOwnerRole('Lessee');
+                }
+
                 const ownerRef = firestore.collection('users').doc(ownerParticipantId);
                 const ownerSnapshot = await ownerRef.get();
-                
                 if (ownerSnapshot.exists) {
                     const ownerData = ownerSnapshot.data();
                     setOwnerInfo(ownerData);
@@ -48,7 +58,7 @@ const Conversation = () => {
                 }
 
                 const messagesSnapshot = await conversationRef.collection('messages').orderBy('timestamp', 'asc').get();
-                const messagesData = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); // Add 'id' field to each message
+                const messagesData = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setMessages(messagesData);
             } else {
                 console.error('Conversation not found');
@@ -246,13 +256,15 @@ const Conversation = () => {
             <div className="flex flex-col md:flex-row h-screen overflow-hidden">
     <div className="md:w-1/3 bg-gray-200 rounded-lg px-4 py-6 md:px-8 md:py-10 h-full md:max-h-screen md:overflow-auto">
         <h2 className="text-xl md:text-3xl font-semibold mb-4">{ownerInfo ? `${ownerInfo.first_name}'s Information` : 'Owner Information'}</h2>
+     
         <div className="bg-white rounded-lg p-4 md:p-6 space-y-4">
             {ownerInfo ? (
                 <>
                     <div className="flex items-center space-x-4">
                         <img src={ownerInfo.profileImage} alt="Profile" className="w-12 h-12 md:w-16 md:h-16 rounded-full" />
                         <div>
-                            <p className="text-base md:text-2xl font-semibold">{`${ownerInfo.first_name} ${ownerInfo.last_name}`}</p>
+                                <p className="text-base md:text-2xl font-semibold">{`${ownerInfo.first_name} ${ownerInfo.last_name}`}</p>
+                                <p className="text-sm md:text-xl text-gray-700">{`(${ownerRole})`}</p>
                             <p className="text-sm md:text-xl text-gray-700">{ownerInfo.email}</p>
                         </div>
                     </div>

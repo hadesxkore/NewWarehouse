@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { firestore } from '../firebase'; 
 import Navigation from './Navigation'; 
+import loupe from '../images/loupe.png';
+
+import * as XLSX from 'xlsx';
 
 function Warehouses() {
     const [warehouses, setWarehouses] = useState([]);
@@ -8,7 +11,43 @@ function Warehouses() {
     const [selectedLessee, setSelectedLessee] = useState(null); // State for selected lessee info
     const [isModalOpen, setIsModalOpen] = useState(false); // State for lessor modal visibility
     const [isLesseeModalOpen, setIsLesseeModalOpen] = useState(false); // State for lessee modal visibility
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredWarehouses, setFilteredWarehouses] = useState(warehouses);
+    const [sortField, setSortField] = useState('name');
+const [sortOrder, setSortOrder] = useState('asc');
+    
 
+const sortWarehouses = (field) => {
+    const sorted = [...filteredWarehouses].sort((a, b) => {
+        if (a[field] < b[field]) return sortOrder === 'asc' ? -1 : 1;
+        if (a[field] > b[field]) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+    setFilteredWarehouses(sorted);
+    setSortField(field);
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+};
+
+const exportToExcel = () => {
+    // Transform data to include only the required fields
+    const transformedData = filteredWarehouses.map(warehouse => ({
+        'Warehouse Name': warehouse.name,
+        'Address': warehouse.address,
+        'Price': warehouse.price,
+        'Status': warehouse.rentStatus,
+        'Upload Date': formatDate(new Date(warehouse.uploadDate.seconds * 1000))
+    }));
+
+    // Convert transformed data to a worksheet
+    const ws = XLSX.utils.json_to_sheet(transformedData);
+    const wb = XLSX.utils.book_new();
+
+    // Append the worksheet to the workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Warehouses');
+
+    // Write the workbook to a file
+    XLSX.writeFile(wb, 'warehouses.xlsx');
+};
     useEffect(() => {
         // Fetch warehouses where rentStatus is 'Rented'
         const fetchWarehouses = async () => {
@@ -27,6 +66,14 @@ function Warehouses() {
         fetchWarehouses();
     }, []);
 
+    useEffect(() => {
+        setFilteredWarehouses(
+            warehouses.filter(warehouse =>
+                warehouse.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                warehouse.address.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+        );
+    }, [searchQuery, warehouses]);
     const fetchUserInfo = async (userUid) => {
         // Fetch user info when button is clicked
         const userSnapshot = await firestore.collection('users').doc(userUid).get();
@@ -72,13 +119,58 @@ function Warehouses() {
             {/* Render the Navigation component */}
             <Navigation />  
 
+
             <div className="container mx-auto p-8">
-                <h1 className="text-2xl font-bold mb-6 text-gray-800">Rented Warehouses</h1>
+    <h1 className="text-2xl font-bold mb-6 text-gray-800">Rented Warehouses</h1>
+    
+    <div className="bg-gradient-to-br from-gray-100 to-white p-6 rounded-lg shadow-lg relative mb-4">
+    {/* Search and Export Section */}
+    <div className="flex flex-col mb-6 space-y-4">
+        {/* Summary Section */}
+        <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">About</h2>
+            <p className="text-gray-600">This section offers a snapshot of the current details related to the rented warehouses. It includes important metrics, summaries, and other relevant insights about the lessor, lessee, and the rented properties.</p>
+        </div>
+
+          {/* Search Input and Export Button */}
+          <div className="flex justify-between items-center space-x-4">
+            <div className="relative w-full max-w-xs">
+                <input
+                    type="text"
+                    placeholder="Search by name or address"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="p-2 pr-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
+                />
+                <img
+                    src={loupe}
+                    alt="Search"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5"
+                />
+            </div>
+            <button 
+                onClick={exportToExcel} 
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md"
+            >
+                Export to Excel
+            </button>
+        </div>
+    </div>
+    
+    {/* Adding space at the bottom */}
+    <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-br from-gray-100 to-white"></div>
+</div>
+
+
                 <div className="overflow-x-auto bg-white shadow-md rounded-lg">
                     <table className="min-w-full bg-white">
                         <thead>
                             <tr className="border-b border-gray-200">
-                                <th className="py-2 px-4 bg-gray-200 font-semibold text-gray-700">Warehouse Name</th>
+                       
+<th onClick={() => sortWarehouses('name')} className="py-2 px-4 bg-gray-200 font-semibold text-gray-700 cursor-pointer text-right">
+    Warehouse Name
+</th>
+
                                 <th className="py-2 px-4 bg-gray-200 font-semibold text-gray-700">Address</th>
                                 <th className="py-2 px-4 bg-gray-200 font-semibold text-gray-700">Price</th>
                                 <th className="py-2 px-4 bg-gray-200 font-semibold text-gray-700">Status</th>
@@ -87,12 +179,12 @@ function Warehouses() {
                             </tr>
                         </thead>
                         <tbody>
-                            {warehouses.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="py-2 px-4 text-center text-gray-900">No data available</td>
-                                </tr>
-                            ) : (
-                                warehouses.map(warehouse => (
+                        {filteredWarehouses.length === 0 ? (
+                            <tr>
+                                <td colSpan="6" className="py-2 px-4 text-center text-gray-900">No data available</td>
+                            </tr>
+                        ) : (
+                            filteredWarehouses.map(warehouse => (
                                     <tr key={warehouse.id} className="border-b border-gray-200 hover:bg-gray-50">
                                         <td className="py-2 px-4 text-gray-900 text-center">{warehouse.name}</td>
                                         <td className="py-2 px-4 text-gray-900 text-center">{warehouse.address}</td>
@@ -128,6 +220,7 @@ function Warehouses() {
                     </table>
                 </div>
             </div>
+          
 
             {/* Modal for displaying owner information */}
             {isModalOpen && selectedUser && (
