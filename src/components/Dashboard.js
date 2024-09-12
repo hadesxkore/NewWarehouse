@@ -82,6 +82,9 @@ const currentDate = new Date().toLocaleDateString('en-US', {
     month: 'long',
     day: '2-digit'
 });
+  // Define state for handling the documents modal and selected documents
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [selectedWarehouseDocuments, setSelectedWarehouseDocuments] = useState([]);
 const [show360ImageModal, setShow360ImageModal] = useState(false);
 const [current360ImageUrl, setCurrent360ImageUrl] = useState('');
 const [isValidUrl, setIsValidUrl] = useState(true);
@@ -123,11 +126,28 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [fileNames, setFileNames] = useState({});
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [fileLabels, setFileLabels] = useState({});
     const [currentWarehouse, setCurrentWarehouse] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false); // State for showing error modal
     const [showRentingApprovedModal, setShowRentingApprovedModal] = useState(false);
     const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
+    const [isIdOptionsModalOpen, setIsIdOptionsModalOpen] = useState(false);
+    
+// Add these state variables and handlers to your Dashboard component
+const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
 
+ 
+const [documents, setDocuments] = useState({
+    secOrDtiRegistration: { file: null, fileName: 'Choose File' },
+    businessPermit: { file: null, fileName: 'Choose File' },
+    birRegistration: { file: null, fileName: 'Choose File' },
+    barangayClearance: { file: null, fileName: 'Choose File' },
+    letterOfIntent: { file: null, fileName: 'Choose File' },
+    financialCapabilityProof: { file: null, fileName: 'Choose File' },
+    personalId: { file: null, fileName: 'Choose File' }
+  });
+  
     const [showLeaseAgreementModal, setShowLeaseAgreementModal] = useState(false);
     const [currentView, setCurrentView] = useState('uploaded'); // <-- Define setCurrentView here
     const [showConfirmation, setShowConfirmation] = useState(false);
@@ -156,6 +176,143 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
         maintenanceRecords: null,
     });
     
+ 
+// Opens the modal for submitting documents
+const openSubmitDocumentsModal = (warehouse) => {
+    setSelectedWarehouse(warehouse);
+    setIsSubmitDocumentsModalOpen(true);
+    
+  };
+  
+  // Closes the modal for submitting documents
+  const closeSubmitDocumentsModal = () => {
+    setIsSubmitDocumentsModalOpen(false);
+    setSelectedWarehouse(null);
+  };
+  
+  
+  // Handle file changes
+  const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (file) {
+      setDocuments(prevDocuments => ({
+        ...prevDocuments,
+        [type]: file,
+      }));
+      setFileLabels(prevFileLabels => ({
+        ...prevFileLabels,
+        [type]: file.name
+      }));
+    } else {
+      setDocuments(prevDocuments => ({
+        ...prevDocuments,
+        [type]: null,
+      }));
+      setFileLabels(prevFileLabels => ({
+        ...prevFileLabels,
+        [type]: ''
+      }));
+    }
+  };
+
+  const openIdOptionsModal = () => {
+    setIsIdOptionsModalOpen(true);
+  };
+
+  const closeIdOptionsModal = () => {
+    setIsIdOptionsModalOpen(false);
+  };
+  
+  const handleDocumentSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (selectedWarehouse) {
+      setIsLoading(true); // Show loading state
+      setUploadProgress(0); // Reset upload progress
+  
+      try {
+        const documentUrls = {};
+        const uploadTasks = [];
+  
+        for (const [key, file] of Object.entries(documents)) {
+          if (file) {
+            const storageRef = storage.ref(`documents/${selectedWarehouse.warehouseId}/${key}/${file.name}`);
+            
+            const uploadTask = storageRef.put(file);
+            
+            uploadTask.on('state_changed', 
+              (snapshot) => {
+                // Calculate and update upload progress
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(progress);
+              },
+              (error) => {
+                // Handle errors
+                console.error('Upload error: ', error);
+                alert('Failed to upload some documents. Please try again.');
+              },
+              async () => {
+                // Get the file URL and save it
+                const fileUrl = await uploadTask.snapshot.ref.getDownloadURL();
+                documentUrls[key] = fileUrl;
+              }
+            );
+  
+            uploadTasks.push(uploadTask);
+          }
+        }
+  
+        // Wait for all upload tasks to complete
+        await Promise.all(uploadTasks);
+  
+        // Update Firestore with document URLs
+        const warehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId);
+        await warehouseRef.update({ documents: documentUrls });
+    
+        setSubmissionSuccessModalVisible(true); // Show success modal
+      } catch (error) {
+        console.error('Error submitting documents: ', error);
+        alert('Failed to submit documents. Please try again.');
+      } finally {
+        setIsLoading(false); // Hide loading state
+      }
+    }
+  };
+  
+  
+  // Function to handle opening the "View Documents" modal
+  const handleViewDocuments = (warehouse) => {
+    // Extract documents from the warehouse object
+    const documents = [
+      { name: 'Barangay Clearance', url: warehouse.documents?.barangayClearance },
+      { name: 'BIR Registration', url: warehouse.documents?.birRegistration },
+      { name: 'Business Permit', url: warehouse.documents?.businessPermit },
+      { name: 'Financial Capability Proof', url: warehouse.documents?.financialCapabilityProof },
+      { name: 'Letter of Intent', url: warehouse.documents?.letterOfIntent },
+      { name: 'Personal ID', url: warehouse.documents?.personalId },
+      { name: 'SEC or DTI Registration', url: warehouse.documents?.secOrDtiRegistration }
+    ].filter(doc => doc.url); // Filter out any undefined documents
+  
+    setSelectedWarehouseDocuments(documents);
+    setShowDocumentsModal(true); // Show the modal
+  };
+  
+  
+    // Function to close the "View Documents" modal
+    const closeDocumentsModal = () => {
+        setShowDocumentsModal(false);
+        setSelectedWarehouseDocuments([]); // Clear the selected documents
+      };
+    
+     // Function to handle downloading a document
+  const handleDownloadDocument = (url, name) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', name);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
     const [warehouseLocation, setWarehouseLocation] = useState({ lat: 0, lng: 0 });
     // Define state variables for modal image URL and modal visibility
     const [modalImageUrl, setModalImageUrl] = useState('');
@@ -168,7 +325,9 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
         const [loadingWarehouses, setLoadingWarehouses] = useState(true);
         const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
         const [errorMessage, setErrorMessage] = useState('');
-
+        const [isSubmissionSuccessModalVisible, setSubmissionSuccessModalVisible] = useState(false);
+        const [isLoading, setIsLoading] = useState(false);
+        
         const [successMessage, setSuccessMessage] = useState('');
         const [newAddress, setNewAddress] = useState('');
         // Function to handle warehouse data change
@@ -1631,27 +1790,26 @@ return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {rentedWarehouses.map(warehouse => (
                         <div key={warehouse.warehouseId} className="bg-white rounded-lg shadow-md p-6 relative">
-                           {/* Approve Icon */}
-{warehouse.status === 'Rented' && (
-    <img
-        src={approve}
-        alt="Approve"
-        className="absolute top-0 right-0 cursor-pointer h-12 w-12 mt-3 mr-3 hover:opacity-75 pumping-animation"
-        onClick={() => handleNotificationClick(warehouse)} // Pass the entire warehouse object
-    />
-)}
+                            {/* Approve Icon */}
+                            {warehouse.status === 'Rented' && (
+                                <img
+                                    src={approve}
+                                    alt="Approve"
+                                    className="absolute top-0 right-0 cursor-pointer h-12 w-12 mt-3 mr-3 hover:opacity-75 pumping-animation"
+                                    onClick={() => handleNotificationClick(warehouse)} // Pass the entire warehouse object
+                                />
+                            )}
 
                             {/* Reject Icon and Modal */}
-                           {warehouse.status === 'Rejected' && (
-                            <div className="absolute top-0 right-0 cursor-pointer h-10 w-10 mt-3 mr-3 pumping-animation">
-                                <img
-                                    src={error1}
-                                    alt="Reject"
-                                    onClick={() => handleRejectModal(warehouse)}
-                                />
-                            </div>
-                        )}
-
+                            {warehouse.status === 'Rejected' && (
+                                <div className="absolute top-0 right-0 cursor-pointer h-10 w-10 mt-3 mr-3 pumping-animation">
+                                    <img
+                                        src={error1}
+                                        alt="Reject"
+                                        onClick={() => handleRejectModal(warehouse)}
+                                    />
+                                </div>
+                            )}
 
                             <h3 className="text-xl font-semibold mb-4">{warehouse.name}</h3>
                             <div className="text-gray-700 mb-4">
@@ -1660,7 +1818,12 @@ return (
                                 <p><strong>Owner:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
                             </div>
                             <p className="text-gray-700 mb-4"><strong>Price:</strong> ₱{warehouse.price}</p>
-                            <p className="text-gray-700 mb-4"><strong>Status:</strong> <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>{warehouse.status}</span></p>
+                            <p className="text-gray-700 mb-4">
+                                <strong>Status:</strong>
+                                <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>
+                                    {warehouse.status}
+                                </span>
+                            </p>
 
                             <p className="text-gray-800 font-semibold mb-2">Amenities:</p>
                             <div className="flex flex-wrap mb-4">
@@ -1676,6 +1839,14 @@ return (
                                     <img key={index} src={image} alt={`Image ${index + 1}`} className="w-full h-auto rounded-md mb-2" />
                                 ))}
                             </div>
+
+                            {/* Submit Documents Button */}
+                            <button
+                                className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700"
+                                onClick={() => openSubmitDocumentsModal(warehouse)}
+                            >
+                                Submit Documents
+                            </button>
                         </div>
                     ))}
                 </div>
@@ -1683,6 +1854,261 @@ return (
         </div>
     </div>
 )}
+
+{/* Submit Documents Modal */}
+{isSubmitDocumentsModalOpen && (
+  <div className="fixed inset-0 bg-gray-800 bg-opacity-60 flex justify-center items-center z-50">
+    <div className="bg-white rounded-lg shadow-lg p-6 w-11/12 md:w-3/4 lg:w-2/3 max-h-[90vh] overflow-y-auto">
+      <h2 className="text-2xl font-semibold mb-6 text-center text-gray-900">
+        Submit Documents for {selectedWarehouse?.name}
+      </h2>
+      <form onSubmit={handleDocumentSubmit}>
+      {/* SEC Registration (for corporations) or DTI Registration (for sole proprietorships) */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="secOrDtiRegistration">
+          SEC Registration (Corporations) or DTI Registration (Sole Proprietorships)
+        </label>
+        <input
+          type="file"
+          id="secOrDtiRegistration"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'secOrDtiRegistration')}
+          required
+        />
+        <label
+          htmlFor="secOrDtiRegistration"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.secOrDtiRegistration || 'Choose'}</span>
+        </label>
+      </div>
+
+      {/* Mayor’s Permit or Business Permit from LGU */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="businessPermit">
+          Mayor’s Permit or Business Permit (LGU)
+        </label>
+        <input
+          type="file"
+          id="businessPermit"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'businessPermit')}
+          required
+        />
+        <label
+          htmlFor="businessPermit"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.businessPermit || 'Choose'}</span>
+        </label>
+      </div>
+
+      {/* BIR Registration (BIR Certificate of Registration Form 2303) */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="birRegistration">
+          BIR Registration (Form 2303)
+        </label>
+        <input
+          type="file"
+          id="birRegistration"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'birRegistration')}
+          required
+        />
+        <label
+          htmlFor="birRegistration"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.birRegistration || 'Choose'}</span>
+        </label>
+      </div>
+
+      {/* Barangay Clearance */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="barangayClearance">
+          Barangay Clearance
+        </label>
+        <input
+          type="file"
+          id="barangayClearance"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'barangayClearance')}
+          required
+        />
+        <label
+          htmlFor="barangayClearance"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.barangayClearance || 'Choose'}</span>
+        </label>
+      </div>
+
+      {/* Letter of Intent (LOI) */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="letterOfIntent">
+          Letter of Intent (LOI)
+        </label>
+        <input
+          type="file"
+          id="letterOfIntent"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'letterOfIntent')}
+          required
+        />
+        <label
+          htmlFor="letterOfIntent"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.letterOfIntent || 'Choose'}</span>
+        </label>
+      </div>
+
+      {/* Proof of Financial Capability (Bank Statement or Latest Income Tax Return) */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="financialCapabilityProof">
+          Proof of Financial Capability (Bank Statement or Latest Income Tax Return)
+        </label>
+        <input
+          type="file"
+          id="financialCapabilityProof"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'financialCapabilityProof')}
+          required
+        />
+        <label
+          htmlFor="financialCapabilityProof"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.financialCapabilityProof || 'Choose'}</span>
+        </label>
+      </div>
+
+      {/* Government Issued ID */}
+      <div className="flex flex-col mb-4">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="personalId">
+          Government Issued ID
+        </label>
+        <input
+          type="file"
+          id="personalId"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, 'personalId')}
+          required
+        />
+        <label
+          htmlFor="personalId"
+          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+        >
+          <span className="text-gray-700">Choose File</span>
+          <span className="text-blue-600">{fileLabels.personalId || 'Choose'}</span>
+        </label>
+        <button
+          type="button"
+          onClick={() => openIdOptionsModal()}
+          className="text-blue-600 mt-2 text-sm hover:underline"
+        >
+          What IDs are accepted?
+        </button>
+      </div>
+
+        {/* Submit and Cancel Buttons */}
+        <div className="flex justify-end space-x-2 mt-6">
+          <button
+            type="button"
+            className="bg-red-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-red-500"
+            onClick={closeSubmitDocumentsModal}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-500"
+          >
+            Submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
+ {/* ID Options Modal */}
+ {isIdOptionsModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-3/4 md:w-1/2 lg:w-1/3">
+            <h2 className="text-2xl font-bold mb-4">Accepted Government Issued IDs</h2>
+            <ul className="list-disc pl-5 mb-4">
+              <li>Philippine Identification (PhilID) / ePhilID</li>
+              <li>Social Security System (SSS) Card</li>
+              <li>Unified Multi-Purpose Identification (UMID) Card</li>
+              <li>Land Transportation Office (LTO) Driver’s License</li>
+              <li>Professional Regulatory Commission (PRC) ID</li>
+              <li>Philippine National ID (PhilID)</li>
+              <li>Overseas Workers Welfare Administration/Integrated Department of Labor and Employment ID (OWWA/iDole ID)</li>
+              <li>Voter’s ID</li>
+              <li>Philippine National Police (PNP) firearms license</li>
+            </ul>
+            <button
+              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-700"
+              onClick={closeIdOptionsModal}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+        )}
+
+{isLoading && (
+  <div className="fixed inset-0 bg-gray-800 bg-opacity-70 flex justify-center items-center z-50">
+    <div className="bg-white rounded-lg shadow-lg p-4 w-80 max-w-sm">
+      <div className="text-center">
+        <div className="mb-4">
+          <div className="text-lg font-semibold text-blue-600">Uploading...</div>
+          <div className="relative pt-2">
+            <div className="text-xs font-semibold inline-block py-1 px-2 rounded-full text-teal-600 bg-teal-200">
+              {Math.round(uploadProgress)}%
+            </div>
+            <div className="mt-2 h-2 bg-gray-300 rounded-full overflow-hidden">
+              <div
+                className="bg-teal-600 h-full"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+            {uploadProgress < 100 && (
+              <div className="text-sm text-gray-600 mt-2">Please wait...</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{isSubmissionSuccessModalVisible && (
+  <div className="fixed inset-0 bg-gray-800 bg-opacity-70 flex justify-center items-center z-50">
+    <div className="bg-white rounded-lg shadow-lg p-4 w-80 max-w-sm">
+      <div className="text-center">
+        <div className="text-lg font-semibold mb-2 text-green-600">Success!</div>
+        <p className="text-gray-700 mb-4">Your documents have been submitted successfully.</p>
+        <button
+          type="button"
+          onClick={() => setSubmissionSuccessModalVisible(false)}
+          className="bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-500"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
  {/* Rejection Reason Modal */}
  {showRejectModal2 && selectedWarehouse && (
                 <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
@@ -1770,7 +2196,7 @@ return (
                                     <img key={index} src={image} alt={`Image ${index + 1}`} className="w-full h-auto rounded-md mb-2" />
                                 ))}
                             </div>
-                            <div className="flex space-x-4 mt-4">
+                            <div className="flex space-x-2 mt-4">
                                 <button
                                     className="bg-green-500 text-white font-semibold py-2 px-12 rounded hover:bg-green-600 transition duration-300"
                                     onClick={() => markAsRented(warehouse.warehouseId)}
@@ -1789,15 +2215,64 @@ return (
                                 >
                                     Reject
                                 </button>
+                                {/* View Documents Button */}
+                                <button
+                                    className="bg-purple-500 text-white font-semibold py-2 px-12 rounded hover:bg-purple-600 transition duration-300"
+                                    onClick={() => handleViewDocuments(warehouse)}
+                                >
+                                    View Documents
+                                </button>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
         </div>
+
+      {/* View Documents Modal */}
+{showDocumentsModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full relative">
+      <h3 className="text-2xl font-bold mb-6">Submitted Documents</h3>
+      {/* Close Button */}
+      <button
+        className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+        onClick={closeDocumentsModal}
+      >
+        ✕
+      </button>{/* Documents List */}
+      {selectedWarehouseDocuments.length > 0 ? (
+        <ul className="space-y-4">
+          {selectedWarehouseDocuments.map((document, index) => (
+            <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
+              <span className="text-lg">{document.name}</span>
+              <div className="flex space-x-4">
+                {/* View Button */}
+                <button
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
+                  onClick={() => window.open(document.url, '_blank')}
+                >
+                  View
+                </button>
+                {/* Download Button */}
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition duration-300"
+                  onClick={() => handleDownloadDocument(document.url)}
+                >
+                  Download
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+                    ) : (
+                        <p className="text-center text-gray-600">No documents submitted.</p>
+                    )}
+                </div>
+            </div>
+        )}
     </div>
 )}
-
 
 
 {/* Rejection Reason Modal */}
