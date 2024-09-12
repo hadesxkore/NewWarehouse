@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 
 
 import error1 from '../images/error1.png';
+import Mark from '../images/mark.png';
 import approve from '../images/approve.png';
 import priceTagIcon from '../images/price-tag.png';
 import infoIcon from '../images/info.png';
@@ -133,7 +134,8 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
     const [showRentingApprovedModal, setShowRentingApprovedModal] = useState(false);
     const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
     const [isIdOptionsModalOpen, setIsIdOptionsModalOpen] = useState(false);
-    
+    const [alreadyUploadedModalVisible, setAlreadyUploadedModalVisible] = useState(false);
+
 // Add these state variables and handlers to your Dashboard component
 const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
 
@@ -177,12 +179,22 @@ const [documents, setDocuments] = useState({
     });
     
  
-// Opens the modal for submitting documents
-const openSubmitDocumentsModal = (warehouse) => {
-    setSelectedWarehouse(warehouse);
-    setIsSubmitDocumentsModalOpen(true);
-    
+// Function to check if documents are already uploaded and open the respective modal
+const openSubmitDocumentsModal = async (warehouse) => {
+    // Fetch the warehouse document from Firestore
+    const warehouseRef = firestore.collection('rentedWarehouses').doc(warehouse.warehouseId);
+    const warehouseDoc = await warehouseRef.get();
+  
+    if (warehouseDoc.exists && warehouseDoc.data().documents) {
+      // If documents exist, show the "Already Uploaded" modal
+      setAlreadyUploadedModalVisible(true);
+    } else {
+      // If no documents exist, proceed to open the "Submit Documents" modal
+      setSelectedWarehouse(warehouse);
+      setIsSubmitDocumentsModalOpen(true);
+    }
   };
+  
   
   // Closes the modal for submitting documents
   const closeSubmitDocumentsModal = () => {
@@ -2055,7 +2067,7 @@ return (
               <li>Philippine National Police (PNP) firearms license</li>
             </ul>
             <button
-              className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-700"
+              className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-700 justify-end"
               onClick={closeIdOptionsModal}
             >
               Close
@@ -2107,6 +2119,31 @@ return (
     </div>
   </div>
 )}
+{alreadyUploadedModalVisible && (
+  <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+    <div className="bg-white p-8 rounded-xl shadow-2xl w-96 max-w-lg relative">
+      {/* Icon Inside the Modal */}
+      <div className="flex justify-center mb-6">
+        <img src={Mark} alt="Warning Icon" className="w-12 h-12" />
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">Documents Already Uploaded</h2>
+        <p className="text-gray-600 mb-6">
+          You have already submitted the required documents for this warehouse.
+        </p>
+        <button
+          className="bg-red-500 text-white py-2 px-6 rounded-lg hover:bg-red-600 transition-colors duration-300 shadow-md"
+          onClick={() => setAlreadyUploadedModalVisible(false)}
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
 
 
  {/* Rejection Reason Modal */}
