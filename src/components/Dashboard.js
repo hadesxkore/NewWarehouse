@@ -107,6 +107,8 @@ const [formData, setFormData] = useState({
     warehouseName: '',
     rentAmount: ''
 });
+const [isStatusSaved, setIsStatusSaved] = useState(false);
+
 const [showDeleteModal, setShowDeleteModal] = useState(false);
 const [warehouseToDelete, setWarehouseToDelete] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -135,19 +137,27 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
     const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
     const [isIdOptionsModalOpen, setIsIdOptionsModalOpen] = useState(false);
     const [alreadyUploadedModalVisible, setAlreadyUploadedModalVisible] = useState(false);
+    const [modalMessage, setModalMessage] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false); // Control modal visibility
+    const [showDocumentStatusModal, setShowDocumentStatusModal] = useState(false);
+    const [rejectReasonModalOpen, setRejectReasonModalOpen] = useState(false);
+    const [currentRejectIndex, setCurrentRejectIndex] = useState(null); // Track which document's rejection reason is being entered
+    const [rejectionReasons, setRejectionReasons] = useState({}); // Store rejection reasons for each document
+
+    const [tooltipVisibleIndex, setTooltipVisibleIndex] = useState(null); // State to track the hovered document
 
 // Add these state variables and handlers to your Dashboard component
 const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
 
  
 const [documents, setDocuments] = useState({
-    secOrDtiRegistration: { file: null, fileName: 'Choose File' },
-    businessPermit: { file: null, fileName: 'Choose File' },
+    taxIdentificationNumber: { file: null, fileName: 'Choose File' },
     birRegistration: { file: null, fileName: 'Choose File' },
     barangayClearance: { file: null, fileName: 'Choose File' },
     letterOfIntent: { file: null, fileName: 'Choose File' },
+    governmentIssuedId: { file: null, fileName: 'Choose File' },
     financialCapabilityProof: { file: null, fileName: 'Choose File' },
-    personalId: { file: null, fileName: 'Choose File' }
+
   });
   
     const [showLeaseAgreementModal, setShowLeaseAgreementModal] = useState(false);
@@ -291,24 +301,194 @@ const openSubmitDocumentsModal = async (warehouse) => {
     }
   };
   
-  
-  // Function to handle opening the "View Documents" modal
-  const handleViewDocuments = (warehouse) => {
-    // Extract documents from the warehouse object
+ 
+  const handleViewDocuments = async (warehouse) => {
+    console.log("Warehouse Object:", warehouse);
+    console.log("Warehouse ID:", warehouse.warehouseId);
+
+    if (!warehouse.warehouseId) {
+        alert("Invalid warehouse ID.");
+        return;
+    }
+
+
+    
+    // Fetch the latest data from Firestore
+    const warehouseData = await firestore.collection('rentedWarehouses').doc(warehouse.warehouseId).get();
+    const data = warehouseData.data();
+
+    // Ensure data is valid
+    if (!data) {
+        console.error("No data found for the specified warehouse ID.");
+        return;
+    }
+
     const documents = [
-      { name: 'Barangay Clearance', url: warehouse.documents?.barangayClearance },
-      { name: 'BIR Registration', url: warehouse.documents?.birRegistration },
-      { name: 'Business Permit', url: warehouse.documents?.businessPermit },
-      { name: 'Financial Capability Proof', url: warehouse.documents?.financialCapabilityProof },
-      { name: 'Letter of Intent', url: warehouse.documents?.letterOfIntent },
-      { name: 'Personal ID', url: warehouse.documents?.personalId },
-      { name: 'SEC or DTI Registration', url: warehouse.documents?.secOrDtiRegistration }
-    ].filter(doc => doc.url); // Filter out any undefined documents
-  
+        { 
+            name: 'Tax Identification Number', 
+            url: data.documents?.taxIdentificationNumber, 
+            status: data.documents?.taxidentificationnumberStatus, 
+            rejectionReason: '', // Initialize the rejection reason
+        },
+        { 
+            name: 'BIR Registration', 
+            url: data.documents?.birRegistration, 
+            status: data.documents?.birregistrationStatus,
+            rejectionReason: '', // Initialize the rejection reason
+        },
+        { 
+            name: 'Barangay Clearance', 
+            url: data.documents?.barangayClearance, 
+            status: data.documents?.barangayclearanceStatus,
+            rejectionReason: '', // Initialize the rejection reason
+        },
+        { 
+            name: 'Letter of Intent', 
+            url: data.documents?.letterOfIntent, 
+            status: data.documents?.letterofintentStatus,
+            rejectionReason: '', // Initialize the rejection reason
+        },
+        { 
+            name: 'Financial Capability Proof', 
+            url: data.documents?.financialCapabilityProof, 
+            status: data.documents?.financialcapabilityproofStatus,
+            rejectionReason: '', // Initialize the rejection reason
+        },
+        { 
+            name: 'Government Issued ID', 
+            url: data.documents?.governmentIssuedId, 
+            status: data.documents?.governmentissuedidStatus,
+            rejectionReason: '', // Initialize the rejection reason
+        },
+    ].filter(doc => doc.url); // Filter out undefined documents
+    
+    // Set documents state
     setSelectedWarehouseDocuments(documents);
-    setShowDocumentsModal(true); // Show the modal
-  };
+    setSelectedWarehouse(warehouse);
+
+    // Check if any documents have statuses
+    setIsStatusSaved(documents.some(doc => doc.status));
+
+    // Check if current user is the lessee or lessor
+    const currentUser = firebase.auth().currentUser; // Assuming you're using Firebase Auth
+    console.log("Current User ID:", currentUser.uid); // Log current user's ID
+
+    const isLessor = data.ownerUid && data.ownerUid === currentUser.uid; // Check if the current user is the lessor
+    const isLessee = data.userUid && data.userUid === currentUser.uid; // Check if the current user is the lessee
+
+    console.log("Is Lessor:", isLessor); // Log the result of lessor check
+    console.log("Is Lessee:", isLessee); // Log the result of lessee check
+
+    if (isLessor) {
+        // Open the documents modal for the lessor
+        setShowDocumentsModal(true);
+    } else if (isLessee) {
+        // Open the document status modal for the lessee
+        setShowDocumentStatusModal(true);
+    } else {
+        alert("You are not authorized to view the documents for this warehouse.");
+    }
+};
+
+
+// Function to show the rejection reason modal
+const handleViewRejectionReason = (reason) => {
+    setRejectionReason(reason); // Set the rejection reason
+    setShowRejectionReasonModal(true); // Show the modal
+};
+// Function to open the rejection reason modal
+const handleRejectClick = (index) => {
+    setCurrentRejectIndex(index); // Set the index of the document being rejected
+    setRejectReasonModalOpen(true); // Open the rejection reason modal
+};
+// Update the handleDocumentStatusChange function to open the modal for rejection
+const handleDocumentStatusChange = (index, status) => {
+    if (status === 'rejected') {
+        handleRejectClick(index); // Open rejection reason modal
+    } else {
+        setSelectedWarehouseDocuments(prevDocuments => {
+            const updatedDocuments = [...prevDocuments];
+            updatedDocuments[index].status = status; // Update the status (approved/rejected)
+            return updatedDocuments;
+        });
+    }
+};
+const handleSaveRejectionReason = () => {
+    setSelectedWarehouseDocuments(prevDocuments => {
+        const updatedDocuments = [...prevDocuments];
+        if (currentRejectIndex !== null) {
+            updatedDocuments[currentRejectIndex].rejectionReason = rejectionReason; // Store the rejection reason directly from the input
+            updatedDocuments[currentRejectIndex].status = 'rejected'; // Ensure status is set to rejected
+        }
+        return updatedDocuments;
+    });
+
+    setRejectReasonModalOpen(false); // Close the modal
+    setRejectionReason(''); // Reset the reason for the next time
+};
+
+
+const handleSaveDocumentStatus = async () => {
+    const warehouseId = selectedWarehouse?.warehouseId;
+
+    if (!warehouseId) {
+        alert("Invalid warehouse ID.");
+        return;
+    }
+
+    // Prepare the updated document statuses and rejection reasons
+    const updatedDocumentStatuses = selectedWarehouseDocuments.reduce((acc, doc) => {
+        acc[`${doc.name.replace(/\s+/g, '').toLowerCase()}Status`] = doc.status;
+        
+        // Add rejection reason if available
+        if (doc.rejectionReason) {
+            acc[`${doc.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`] = doc.rejectionReason;
+        }
+        
+        return acc;
+    }, {});
+
+    try {
+        await firestore.collection('rentedWarehouses').doc(warehouseId).update({
+            documents: {
+                ...selectedWarehouse.documents, // Keep original URLs
+                ...updatedDocumentStatuses // Save updated statuses and rejection reasons
+            }
+        });
+
+        // Update local state after saving
+        setSelectedWarehouseDocuments(prevDocuments => 
+            prevDocuments.map(doc => ({
+                ...doc,
+                status: doc.status // Ensure status is set
+            }))
+        );
+
+        setIsStatusSaved(true); // Set the status as saved
+
+        // Show success modal instead of alert
+        setModalMessage('Document statuses updated successfully.');
+        setIsModalOpen(true);
+        setShowDocumentsModal(false);
+
+        // Refresh the document list after saving
+        handleViewDocuments(selectedWarehouse); // Refresh documents to get updated status
+    } catch (error) {
+        console.error("Error updating document:", error);
+        alert("Failed to update document.");
+    }
+};
+
+
   
+  // Function to handle document approval/rejection
+  const handleDocumentApproval = (documentName, status) => {
+    setSelectedWarehouseDocuments(prevDocs => 
+      prevDocs.map(doc => 
+        doc.name === documentName ? { ...doc, status } : doc
+      )
+    );
+  };
   
     // Function to close the "View Documents" modal
     const closeDocumentsModal = () => {
@@ -339,7 +519,8 @@ const openSubmitDocumentsModal = async (warehouse) => {
         const [errorMessage, setErrorMessage] = useState('');
         const [isSubmissionSuccessModalVisible, setSubmissionSuccessModalVisible] = useState(false);
         const [isLoading, setIsLoading] = useState(false);
-        
+        const [showRejectionReasonModal, setShowRejectionReasonModal] = useState(false);
+
         const [successMessage, setSuccessMessage] = useState('');
         const [newAddress, setNewAddress] = useState('');
         // Function to handle warehouse data change
@@ -1854,15 +2035,119 @@ return (
 
                             {/* Submit Documents Button */}
                             <button
-                                className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700"
+                                className="mt-4 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-500"
                                 onClick={() => openSubmitDocumentsModal(warehouse)}
                             >
                                 Submit Documents
+                            </button>
+                              {/* Document Status Button */}
+                              <button
+                                className="mt-4 ml-2 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-500"
+                                onClick={() => handleViewDocuments(warehouse)}
+                            >
+                                Document Status
                             </button>
                         </div>
                     ))}
                 </div>
             )}
+        </div>
+    </div>
+)}
+
+{showDocumentStatusModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-3xl"> {/* Wider card */}
+            <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Document Status</h2>
+            {/* Documents List */}
+            {selectedWarehouseDocuments.length > 0 ? (
+                <ul className="space-y-4">
+                    {selectedWarehouseDocuments.map((document, index) => (
+                        <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
+                            <span className="text-lg">{document.name}</span>
+                            <div className="flex items-center space-x-4">
+                                {/* View Button */}
+                                <button
+                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
+                                    onClick={() => window.open(document.url, '_blank')}
+                                >
+                                    View
+                                </button>
+
+                              
+                                        {/* Document Status */}
+                                        <div className="relative"> {/* Added relative positioning */}
+                                            <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
+                                                <div
+                                                    className={`flex items-center justify-center text-sm font-semibold w-32 ${document.status === 'approved' ? 'text-green-600' : document.status === 'rejected' ? 'text-red-600 cursor-pointer hover:underline' : 'text-orange-600'}`}
+                                                    onClick={() => {
+                                                        if (document.status === 'rejected') {
+                                                            // Determine the rejection reason based on document name
+                                                            const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
+                                                            const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
+                                                            handleViewRejectionReason(rejectionReason);
+                                                        }
+                                                    }}
+                                                    onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
+                                                    onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
+                                                >
+                                                    <span>
+                                                        {document.status === 'approved' ? '✅ Approved' : document.status === 'rejected' ? '❌ Rejected' : '🟠 Pending'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {/* Tooltip */}
+                                            {document.status === 'rejected' && tooltipVisibleIndex === index && (
+                                                <div className="absolute z-10 w-48 p-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg -top-10 left-1/2 transform -translate-x-1/2 text-center">
+                                                    <span className="font-medium">Click to view the reason of rejection</span>
+                                                </div>
+                                            )}
+
+
+                                </div>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-center text-gray-600">No documents submitted.</p>
+            )}
+              {/* Note for the user */}
+<div className="mt-4 p-4 bg-gray-100 rounded-lg shadow-md">
+    <p className="text-sm text-gray-700 text-center">
+        Note: If you want to know why a document was rejected, simply hover over the rejected status and click on it.
+    </p>
+</div>
+
+            <div className="mt-6 flex justify-end">
+                <button
+                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 transition duration-300"
+                    onClick={() => setShowDocumentStatusModal(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
+
+{showRejectionReasonModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md mx-4">
+            <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Reason for Rejection</h2>
+            <div className="bg-gray-100 p-4 rounded-lg mb-6"> {/* New background for reason */}
+                <p className="text-lg text-gray-700 text-center">{rejectionReason}</p>
+            </div>
+            <div className="flex justify-center">
+                <button
+                    className="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-500 transition duration-300"
+                    onClick={() => setShowRejectionReasonModal(false)}
+                >
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 )}
@@ -1875,45 +2160,24 @@ return (
         Submit Documents for {selectedWarehouse?.name}
       </h2>
       <form onSubmit={handleDocumentSubmit}>
-      {/* SEC Registration (for corporations) or DTI Registration (for sole proprietorships) */}
+      {/* Tax Identification Number */}
       <div className="flex flex-col mb-4">
-        <label className="text-gray-800 font-medium mb-2" htmlFor="secOrDtiRegistration">
-          SEC Registration (Corporations) or DTI Registration (Sole Proprietorships)
+        <label className="text-gray-800 font-medium mb-2" htmlFor="taxIdentificationNumber">
+        Tax Identification Number
         </label>
         <input
           type="file"
-          id="secOrDtiRegistration"
+          id="taxIdentificationNumber"
           className="hidden"
-          onChange={(e) => handleFileChange(e, 'secOrDtiRegistration')}
+          onChange={(e) => handleFileChange(e, 'taxIdentificationNumber')}
           required
         />
         <label
-          htmlFor="secOrDtiRegistration"
+          htmlFor="taxIdentificationNumber"
           className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
         >
           <span className="text-gray-700">Choose File</span>
-          <span className="text-blue-600">{fileLabels.secOrDtiRegistration || 'Choose'}</span>
-        </label>
-      </div>
-
-      {/* Mayor’s Permit or Business Permit from LGU */}
-      <div className="flex flex-col mb-4">
-        <label className="text-gray-800 font-medium mb-2" htmlFor="businessPermit">
-          Mayor’s Permit or Business Permit (LGU)
-        </label>
-        <input
-          type="file"
-          id="businessPermit"
-          className="hidden"
-          onChange={(e) => handleFileChange(e, 'businessPermit')}
-          required
-        />
-        <label
-          htmlFor="businessPermit"
-          className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-        >
-          <span className="text-gray-700">Choose File</span>
-          <span className="text-blue-600">{fileLabels.businessPermit || 'Choose'}</span>
+          <span className="text-blue-600">{fileLabels.taxIdentificationNumber || 'Choose'}</span>
         </label>
       </div>
 
@@ -2003,22 +2267,22 @@ return (
 
       {/* Government Issued ID */}
       <div className="flex flex-col mb-4">
-        <label className="text-gray-800 font-medium mb-2" htmlFor="personalId">
+        <label className="text-gray-800 font-medium mb-2" htmlFor="governmentIssuedId">
           Government Issued ID
         </label>
         <input
           type="file"
-          id="personalId"
+          id="governmentIssuedId"
           className="hidden"
-          onChange={(e) => handleFileChange(e, 'personalId')}
+          onChange={(e) => handleFileChange(e, 'governmentIssuedId')}
           required
         />
         <label
-          htmlFor="personalId"
+          htmlFor="governmentIssuedId"
           className="flex items-center justify-between w-full p-2 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
         >
           <span className="text-gray-700">Choose File</span>
-          <span className="text-blue-600">{fileLabels.personalId || 'Choose'}</span>
+          <span className="text-blue-600">{fileLabels.governmentIssuedId || 'Choose'}</span>
         </label>
         <button
           type="button"
@@ -2257,7 +2521,7 @@ return (
                                     className="bg-purple-500 text-white font-semibold py-2 px-12 rounded hover:bg-purple-600 transition duration-300"
                                     onClick={() => handleViewDocuments(warehouse)}
                                 >
-                                    View Documents
+                                    Review Documents
                                 </button>
                             </div>
                         </div>
@@ -2266,51 +2530,157 @@ return (
             )}
         </div>
 
-      {/* View Documents Modal */}
-{showDocumentsModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-    <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full relative">
-      <h3 className="text-2xl font-bold mb-6">Submitted Documents</h3>
-      {/* Close Button */}
-      <button
-        className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
-        onClick={closeDocumentsModal}
-      >
-        ✕
-      </button>{/* Documents List */}
-      {selectedWarehouseDocuments.length > 0 ? (
-        <ul className="space-y-4">
-          {selectedWarehouseDocuments.map((document, index) => (
-            <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
-              <span className="text-lg">{document.name}</span>
-              <div className="flex space-x-4">
-                {/* View Button */}
+       
+        {showDocumentsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full relative">
+                <h3 className="text-2xl font-bold mb-6">Submitted Documents</h3>
+                {/* Close Button */}
                 <button
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
-                  onClick={() => window.open(document.url, '_blank')}
+                    className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+                    onClick={closeDocumentsModal}
                 >
-                  View
+                    ✕
                 </button>
-                {/* Download Button */}
-                <button
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition duration-300"
-                  onClick={() => handleDownloadDocument(document.url)}
-                >
-                  Download
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-                    ) : (
-                        <p className="text-center text-gray-600">No documents submitted.</p>
-                    )}
+
+                {/* Documents List */}
+                {selectedWarehouseDocuments.length > 0 ? (
+                <ul className="space-y-4">
+                    {selectedWarehouseDocuments.map((document, index) => (
+                        <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
+                            <span className="text-lg">{document.name}</span>
+                            <div className="flex space-x-4 items-center">
+                                <button
+                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
+                                    onClick={() => window.open(document.url, '_blank')}
+                                >
+                                    View
+                                </button>
+                                <button
+                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition duration-300"
+                                    onClick={() => handleDownloadDocument(document.url)}
+                                >
+                                    Download
+                                </button>
+                                <div className="flex items-center justify-between p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
+                                    {document.status ? (
+                                        <div className={`flex items-center justify-center text-sm font-semibold ${document.status === 'approved' ? 'text-green-600' : 'text-red-600'} w-32`}>
+                                            <span>
+                                                {document.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center space-x-2 w-full">
+                                            <label className="flex items-center text-sm">
+                                                <input
+                                                    type="radio"
+                                                    name={`status-${index}`}
+                                                    value="approved"
+                                                    checked={document.status === 'approved'}
+                                                    onChange={() => handleDocumentStatusChange(index, 'approved')}
+                                                    className="form-radio h-4 w-4 text-green-600 accent-green-600"
+                                                />
+                                                <span className="ml-1 text-green-600">Approve</span>
+                                            </label>
+                                            <label className="flex items-center text-sm">
+                                                <input
+                                                    type="radio"
+                                                    name={`status-${index}`}
+                                                    value="rejected"
+                                                    checked={document.status === 'rejected'}
+                                                    onChange={() => handleDocumentStatusChange(index, 'rejected')}
+                                                    className="form-radio h-4 w-4 text-red-600 accent-red-600"
+                                                />
+                                                <span className="ml-1 text-red-600">Reject</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-center text-gray-600">No documents submitted.</p>
+            )}
+    {/* Save Button */}
+    <button
+                className="bg-blue-600 text-white px-6 py-3 mt-6 rounded hover:bg-blue-500 transition duration-300 w-full"
+                onClick={handleSaveDocumentStatus}
+            >
+                Save
+            </button>
                 </div>
             </div>
         )}
     </div>
 )}
 
+{/* Rejection Reason Modal */}
+{rejectReasonModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-lg w-full relative">
+            <h3 className="text-2xl font-bold mb-6">Reason for Rejection</h3>
+            
+            {/* Close Button */}
+            <button
+                className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+                onClick={() => setRejectReasonModalOpen(false)}
+            >
+                ✕
+            </button>
+
+            {/* Rejection Reason Textarea */}
+            <textarea
+                className="w-full p-4 border border-gray-300 rounded-lg"
+                rows="4"
+                placeholder="Please state your reason for rejecting this document..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+            ></textarea>
+
+            {/* Save Rejection Reason Button */}
+            <button
+                className="bg-red-600 text-white px-6 py-3 mt-6 rounded hover:bg-red-500 transition duration-300 w-full"
+                onClick={handleSaveRejectionReason}
+            >
+                Save Reason
+            </button>
+        </div>
+    </div>
+)}
+{/* Success Modal */}
+{isModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full text-center relative">
+            
+            {/* Checkmark Icon Inside Modal */}
+            <div className="flex justify-center items-center mb-6">
+                <div className="bg-green-500 rounded-full p-4 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
+
+            {/* Success Text */}
+            <div className="mt-2">
+                <h2 className="text-2xl font-bold text-green-600 mb-4">Success!</h2>
+                <p className="text-gray-700">{modalMessage}</p>
+            </div>
+
+            {/* Close Button */}
+            <div className="mt-6">
+                <button
+                    className="bg-green-600 text-white px-10 py-2 rounded-2xl hover:bg-green-500 transition duration-300"
+                    onClick={() => setIsModalOpen(false)}
+                >
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+)}
 
 {/* Rejection Reason Modal */}
 {showRejectModal && (
