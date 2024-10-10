@@ -481,7 +481,7 @@ const handleSaveDocumentStatus = async () => {
         setIsStatusSaved(true); // Set the status as saved
 
         // Show success modal instead of alert
-        setModalMessage('Document statuses updated successfully.');
+        setModalMessage('The documents have been successfully validated');
         setIsModalOpen(true);
         setShowDocumentsModal(false);
 
@@ -827,6 +827,7 @@ const handleAmenitySelection = (amenityName) => {
         setSelectedAmenities([...selectedAmenities, amenityName]);
     }
 };
+
 const handleResubmit = async () => {
     if (!selectedFile) {
         alert("Please select a file to resubmit.");
@@ -859,6 +860,7 @@ const handleResubmit = async () => {
                 // Identify which document is being resubmitted
                 const documentTypes = [
                     'barangayClearance',
+                    'birRegistration',
                     'financialCapabilityProof',
                     'governmentIssuedId',
                     'letterOfIntent',
@@ -869,8 +871,6 @@ const handleResubmit = async () => {
                 for (const documentType of documentTypes) {
                     await firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId).update({
                         [`documents.${documentType}`]: fileURL,
-                        [`documents.${documentType}Status`]: 'resubmitted', // Set the status as resubmitted
-                        [`documents.${documentType}RejectionReason`]: '', // Clear the rejection reason
                     });
                 }
 
@@ -2104,7 +2104,7 @@ return (
                             </div>
                             <p className="text-gray-700 mb-4"><strong>Price:</strong> ₱{warehouse.price}</p>
                             <p className="text-gray-700 mb-4">
-                                <strong>Status:</strong>
+                                <strong>Status: </strong>
                                 <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>
                                     {warehouse.status}
                                 </span>
@@ -2227,14 +2227,24 @@ return (
     </div>
 )}
 
-
 {showRejectionReasonModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
         <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md mx-4">
             <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Reason for Rejection</h2>
-            <div className="bg-gray-100 p-4 rounded-lg mb-6"> 
+            <div className="bg-gray-100 p-4 rounded-lg mb-2"> 
                 <p className="text-lg text-gray-700 text-center">{rejectionReason}</p>
             </div>
+
+            {/* Horizontal line separating rejection reason and instruction text */}
+            <hr className="my-4 border-gray-300" />
+
+            {/* Instruction Text for Resubmission */}
+            <p className="text-sm text-gray-900 mb-4 text-center">
+                To resubmit a new document, please choose a new file below.
+            </p>
+
+            {/* Horizontal line above the file input */}
+            <hr className="my-4 border-gray-300" />
 
             {/* Modern File Input for Resubmission */}
             <label className="block mb-4">
@@ -2298,13 +2308,13 @@ return (
                     </svg>
                 </div>
             </div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">Document Submitted! </h2>
+            <h2 className="text-2xl font-semibold text-green-600 mb-2">Document Submitted! </h2>
             <p className="text-gray-600 mb-6">Kindly wait for the lessor to review and approve it.</p>
             <button
                 className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-500 transition duration-200"
                 onClick={() => setSuccessNotificationVisible(false)}
             >
-                Close
+                OK
             </button>
         </div>
     </div>
@@ -2527,22 +2537,40 @@ return (
 )}
 
 {isSubmissionSuccessModalVisible && (
-  <div className="fixed inset-0 bg-gray-800 bg-opacity-70 flex justify-center items-center z-50">
-    <div className="bg-white rounded-lg shadow-lg p-4 w-80 max-w-sm">
-      <div className="text-center">
-        <div className="text-lg font-semibold mb-2 text-green-600">Success!</div>
-        <p className="text-gray-700 mb-4">Your documents have been submitted successfully.</p>
-        <button
-          type="button"
-          onClick={() => setSubmissionSuccessModalVisible(false)}
-          className="bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-500"
-        >
-          Close
-        </button>
-      </div>
+    <div className="fixed inset-0 bg-gray-800 bg-opacity-70 flex justify-center items-center z-50">
+        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm">
+            <div className="text-center">
+                {/* Success Icon */}
+                <div className="flex items-center justify-center mb-6">
+                    <div className="flex items-center justify-center w-16 h-16 bg-green-400 rounded-full">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-10 w-10 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                </div>
+                {/* New Success Message */}
+                <div className="text-lg font-semibold mb-2 text-green-600">Document Successfully Submitted!</div>
+                {/* New Paragraph Text */}
+                <p className="text-gray-700 mb-4">Thank you for your submission. Please await approval from the lessor.</p>
+                {/* Close Button */}
+                <button
+                    type="button"
+                    onClick={() => setSubmissionSuccessModalVisible(false)}
+                    className="bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-500 transition duration-200"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
     </div>
-  </div>
 )}
+
 {alreadyUploadedModalVisible && (
   <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
     <div className="bg-white p-8 rounded-xl shadow-2xl w-96 max-w-lg relative">
@@ -2825,7 +2853,7 @@ return (
 
             {/* Success Text */}
             <div className="mt-2">
-                <h2 className="text-2xl font-bold text-green-600 mb-4">Success!</h2>
+                <h2 className="text-2xl font-bold text-green-600 mb-4">Validation Complete!</h2>
                 <p className="text-gray-700">{modalMessage}</p>
             </div>
 
