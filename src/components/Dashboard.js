@@ -143,11 +143,20 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
     const [rejectReasonModalOpen, setRejectReasonModalOpen] = useState(false);
     const [currentRejectIndex, setCurrentRejectIndex] = useState(null); // Track which document's rejection reason is being entered
     const [rejectionReasons, setRejectionReasons] = useState({}); // Store rejection reasons for each document
+    const [newFile, setNewFile] = useState(null); // State to hold the new file
+    const [currentDocumentIndex, setCurrentDocumentIndex] = useState(null); // Track which document is being resubmitted
+    const [loadingStatus, setLoadingStatus] = useState(false);
+    const [progressPercentage, setProgressPercentage] = useState(0);
+    const [successNotificationVisible, setSuccessNotificationVisible] = useState(false);
+    const [documentType, setDocumentType] = useState(''); // State to hold the current document type
 
     const [tooltipVisibleIndex, setTooltipVisibleIndex] = useState(null); // State to track the hovered document
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
 
-// Add these state variables and handlers to your Dashboard component
-const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
+    // Add these state variables and handlers to your Dashboard component
+    const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
 
  
 const [documents, setDocuments] = useState({
@@ -234,7 +243,11 @@ const openSubmitDocumentsModal = async (warehouse) => {
         ...prevFileLabels,
         [type]: ''
       }));
+      const file = e.target.files[0];
+      setNewFile(file);
     }
+    setSelectedFile(file);
+
   };
 
   const openIdOptionsModal = () => {
@@ -413,6 +426,7 @@ const handleDocumentStatusChange = (index, status) => {
         });
     }
 };
+
 const handleSaveRejectionReason = () => {
     setSelectedWarehouseDocuments(prevDocuments => {
         const updatedDocuments = [...prevDocuments];
@@ -813,6 +827,84 @@ const handleAmenitySelection = (amenityName) => {
         setSelectedAmenities([...selectedAmenities, amenityName]);
     }
 };
+const handleResubmit = async () => {
+    if (!selectedFile) {
+        alert("Please select a file to resubmit.");
+        return;
+    }
+
+    setLoadingStatus(true); // Start loading
+
+    try {
+        // Upload the file to Firebase Storage
+        const storageRef = firebase.storage().ref();
+        const fileRef = storageRef.child(`documents/${selectedFile.name}`);
+        
+        // Monitor the upload progress
+        fileRef.put(selectedFile).on(
+            "state_changed",
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setProgressPercentage(progress);
+            },
+            (error) => {
+                console.error("Error uploading file:", error);
+                alert("Error uploading file: " + error.message);
+                setLoadingStatus(false); // Stop loading
+            },
+            async () => {
+                // Get the file URL after upload completes
+                const fileURL = await fileRef.getDownloadURL();
+
+                // Identify which document is being resubmitted
+                const documentTypes = [
+                    'barangayClearance',
+                    'financialCapabilityProof',
+                    'governmentIssuedId',
+                    'letterOfIntent',
+                    'taxIdentificationNumber'
+                ]; // All document types listed here
+
+                // Update Firestore for each document type
+                for (const documentType of documentTypes) {
+                    await firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId).update({
+                        [`documents.${documentType}`]: fileURL,
+                        [`documents.${documentType}Status`]: 'resubmitted', // Set the status as resubmitted
+                        [`documents.${documentType}RejectionReason`]: '', // Clear the rejection reason
+                    });
+                }
+
+                // Reset file input
+                setSelectedFile(null);
+                setShowRejectionReasonModal(false);
+                setLoadingStatus(false); // Stop loading
+                setSuccessNotificationVisible(true); // Show success message
+                
+                // Real-time update: Set up Firestore listener
+                const unsubscribe = firestore.collection('rentedWarehouses')
+                    .doc(selectedWarehouse.warehouseId)
+                    .onSnapshot((doc) => {
+                        if (doc.exists) {
+                            const updatedData = doc.data();
+                            setDocuments(updatedData.documents); // Update the documents state with new data
+                        }
+                    });
+
+                console.log("File successfully uploaded and Firestore updated.");
+
+                // Clean up the listener when done
+                return () => unsubscribe();
+            }
+        );
+    } catch (error) {
+        console.error("Error uploading file:", error);
+        alert("Error uploading file: " + error.message);
+        setLoadingStatus(false); // Stop loading
+    }
+};
+
+
+
 
  // Effect to set loggedInUserId when user logs in
  useEffect(() => {
@@ -2077,25 +2169,29 @@ return (
                               
                                         {/* Document Status */}
                                         <div className="relative"> {/* Added relative positioning */}
-                                            <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
-                                                <div
-                                                    className={`flex items-center justify-center text-sm font-semibold w-32 ${document.status === 'approved' ? 'text-green-600' : document.status === 'rejected' ? 'text-red-600 cursor-pointer hover:underline' : 'text-orange-600'}`}
-                                                    onClick={() => {
-                                                        if (document.status === 'rejected') {
-                                                            // Determine the rejection reason based on document name
-                                                            const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
-                                                            const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
-                                                            handleViewRejectionReason(rejectionReason);
-                                                        }
-                                                    }}
-                                                    onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
-                                                    onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
-                                                >
-                                                    <span>
-                                                        {document.status === 'approved' ? '✅ Approved' : document.status === 'rejected' ? '❌ Rejected' : '🟠 Pending'}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                        <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
+    <div
+        className={`flex items-center justify-center text-sm font-semibold w-32 ${document.status === 'approved' ? 'text-green-600' : document.status === 'rejected' ? 'text-red-600 cursor-pointer hover:underline' : 'text-orange-600'}`}
+        onClick={() => {
+            if (document.status === 'rejected') {
+                // Log the document name or URL to the console
+                console.log("Rejected Document:", document.name, document.url);
+
+                // Determine the rejection reason based on document name
+                const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
+                const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
+                handleViewRejectionReason(rejectionReason);
+            }
+        }}
+        onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
+        onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
+    >
+        <span>
+            {document.status === 'approved' ? '✅ Approved' : document.status === 'rejected' ? '❌ Rejected' : '🟠 Pending'}
+        </span>
+    </div>
+</div>
+
                                             {/* Tooltip */}
                                             {document.status === 'rejected' && tooltipVisibleIndex === index && (
                                                 <div className="absolute z-10 w-48 p-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg -top-10 left-1/2 transform -translate-x-1/2 text-center">
@@ -2132,17 +2228,36 @@ return (
 )}
 
 
-
 {showRejectionReasonModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md mx-4">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md mx-4">
             <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Reason for Rejection</h2>
-            <div className="bg-gray-100 p-4 rounded-lg mb-6"> {/* New background for reason */}
+            <div className="bg-gray-100 p-4 rounded-lg mb-6"> 
                 <p className="text-lg text-gray-700 text-center">{rejectionReason}</p>
             </div>
-            <div className="flex justify-center">
+
+            {/* Modern File Input for Resubmission */}
+            <label className="block mb-4">
+                <span className="sr-only">Choose file</span>
+                <input
+                    type="file"
+                    accept="image/*" // Change according to your file type
+                    onChange={(e) => handleFileChange(e)}
+                    className="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 transition duration-300 ease-in-out hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+            </label>
+
+            {/* Button Container with Compact Design */}
+            <div className="flex justify-between space-x-2">
                 <button
-                    className="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-500 transition duration-300"
+                    className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-500 transition duration-300 w-full"
+                    onClick={handleResubmit}
+                >
+                    Resubmit
+                </button>
+
+                <button
+                    className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-500 transition duration-300 w-full"
                     onClick={() => setShowRejectionReasonModal(false)}
                 >
                     Close
@@ -2151,6 +2266,51 @@ return (
         </div>
     </div>
 )}
+
+
+{loadingStatus && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-xs mx-4 text-center">
+            <h2 className="text-lg font-semibold mb-2 text-gray-800">Uploading...</h2>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                    className="bg-green-500 h-full rounded-full"
+                    style={{ width: `${progressPercentage}%` }}
+                ></div>
+            </div>
+            <p className="mt-2 text-gray-600">{Math.round(progressPercentage)}%</p>
+        </div>
+    </div>
+)}
+{successNotificationVisible && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm text-center">
+            <div className="flex items-center justify-center mb-6">
+                <div className="flex items-center justify-center w-16 h-16 bg-green-400 rounded-full">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-10 w-10 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-2">Document Submitted! </h2>
+            <p className="text-gray-600 mb-6">Kindly wait for the lessor to review and approve it.</p>
+            <button
+                className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-500 transition duration-200"
+                onClick={() => setSuccessNotificationVisible(false)}
+            >
+                Close
+            </button>
+        </div>
+    </div>
+)}
+
+
 
 {/* Submit Documents Modal */}
 {isSubmitDocumentsModalOpen && (
