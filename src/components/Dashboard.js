@@ -86,6 +86,8 @@ const currentDate = new Date().toLocaleDateString('en-US', {
   // Define state for handling the documents modal and selected documents
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const [selectedWarehouseDocuments, setSelectedWarehouseDocuments] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState(null); // New state to track selected document
+
 const [show360ImageModal, setShow360ImageModal] = useState(false);
 const [current360ImageUrl, setCurrent360ImageUrl] = useState('');
 const [isValidUrl, setIsValidUrl] = useState(true);
@@ -828,8 +830,10 @@ const handleAmenitySelection = (amenityName) => {
     }
 };
 
+
+
 const handleResubmit = async () => {
-    if (!selectedFile) {
+    if (!selectedFile || !selectedDocument) {
         alert("Please select a file to resubmit.");
         return;
     }
@@ -840,7 +844,7 @@ const handleResubmit = async () => {
         // Upload the file to Firebase Storage
         const storageRef = firebase.storage().ref();
         const fileRef = storageRef.child(`documents/${selectedFile.name}`);
-        
+
         // Monitor the upload progress
         fileRef.put(selectedFile).on(
             "state_changed",
@@ -857,29 +861,54 @@ const handleResubmit = async () => {
                 // Get the file URL after upload completes
                 const fileURL = await fileRef.getDownloadURL();
 
-                // Identify which document is being resubmitted
-                const documentTypes = [
-                    'barangayClearance',
-                    'birRegistration',
-                    'financialCapabilityProof',
-                    'governmentIssuedId',
-                    'letterOfIntent',
-                    'taxIdentificationNumber'
-                ]; // All document types listed here
+                // Log the selected document name for debugging
+                console.log("Selected Document Name:", selectedDocument.name);
 
-                // Update Firestore for each document type
-                for (const documentType of documentTypes) {
-                    await firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId).update({
-                        [`documents.${documentType}`]: fileURL,
-                    });
+                // Initialize fieldName variable
+                let fieldName;
+
+                // Map the selected document name to the corresponding Firestore field
+                switch (selectedDocument.name) {
+                    case 'Barangay Clearance':
+                        fieldName = 'barangayClearance';
+                        break;
+                    case 'BIR Registration':
+                        fieldName = 'birRegistration';
+                        break;
+                    case 'Financial Capability Proof':
+                        fieldName = 'financialCapabilityProof';
+                        break;
+                    case 'Government Issued ID':
+                        fieldName = 'governmentIssuedId';
+                        break;
+                    case 'Letter of Intent':
+                        fieldName = 'letterOfIntent';
+                        break;
+                    case 'Tax Identification Number':
+                        fieldName = 'taxIdentificationNumber';
+                        break;
+                    default:
+                        console.error("No matching field found for the selected document.");
+                        setLoadingStatus(false); // Stop loading
+                        return; // Exit the function if no field matches
                 }
 
-                // Reset file input
+                // Update Firestore for the specific document being resubmitted
+                await firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId).update({
+                    [`documents.${fieldName}`]: fileURL, // Store the URL under the specific field in the documents map
+                    [`documents.${fieldName}Resubmitted`]: 'Resubmitted', // Add the documentResubmitted field
+                });
+
+                // Log the updated document name and URL to the console
+                console.log(`Updated Document: ${selectedDocument.name}, URL: ${fileURL}`);
+
+                // Reset file input and state
                 setSelectedFile(null);
+                setSelectedDocument(null); // Reset the selected document
                 setShowRejectionReasonModal(false);
                 setLoadingStatus(false); // Stop loading
                 setSuccessNotificationVisible(true); // Show success message
-                
+
                 // Real-time update: Set up Firestore listener
                 const unsubscribe = firestore.collection('rentedWarehouses')
                     .doc(selectedWarehouse.warehouseId)
@@ -889,8 +918,6 @@ const handleResubmit = async () => {
                             setDocuments(updatedData.documents); // Update the documents state with new data
                         }
                     });
-
-                console.log("File successfully uploaded and Firestore updated.");
 
                 // Clean up the listener when done
                 return () => unsubscribe();
@@ -902,7 +929,6 @@ const handleResubmit = async () => {
         setLoadingStatus(false); // Stop loading
     }
 };
-
 
 
 
@@ -2155,40 +2181,41 @@ return (
             {selectedWarehouseDocuments.length > 0 ? (
                 <ul className="space-y-4">
                     {selectedWarehouseDocuments.map((document, index) => (
-                        <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
-                            <span className="text-lg">{document.name}</span>
-                            <div className="flex items-center space-x-4">
-                                {/* View Button */}
-                                <button
-                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
-                                    onClick={() => window.open(document.url, '_blank')}
-                                >
-                                    View
-                                </button>
+                         <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
+                         <span className="text-lg">{document.name}</span>
+                         <div className="flex items-center space-x-4">
+                             {/* View Button */}
+                             <button
+                                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
+                                 onClick={() => window.open(document.url, '_blank')}
+                             >
+                                 View
+                             </button>
+                                         {/* Document Status */}
+                    <div className="relative">
+                        <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
+                            <div
+                                className={`flex items-center justify-center text-sm font-semibold w-32 ${document.status === 'approved' ? 'text-green-600' : document.status === 'rejected' ? 'text-red-600 cursor-pointer hover:underline' : 'text-orange-600'}`}
+                                onClick={() => {
+                                    if (document.status === 'rejected') {
+                                        // Log the document name or URL to the console
+                                        console.log("Rejected Document:", document.name, document.url);
+                                        
+                                        // Set the selected document for resubmission
+                                        setSelectedDocument(document); // Track the selected document
 
-                              
-                                        {/* Document Status */}
-                                        <div className="relative"> {/* Added relative positioning */}
-                                        <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
-    <div
-        className={`flex items-center justify-center text-sm font-semibold w-32 ${document.status === 'approved' ? 'text-green-600' : document.status === 'rejected' ? 'text-red-600 cursor-pointer hover:underline' : 'text-orange-600'}`}
-        onClick={() => {
-            if (document.status === 'rejected') {
-                // Log the document name or URL to the console
-                console.log("Rejected Document:", document.name, document.url);
-
-                // Determine the rejection reason based on document name
-                const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
-                const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
-                handleViewRejectionReason(rejectionReason);
-            }
-        }}
-        onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
-        onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
-    >
-        <span>
-            {document.status === 'approved' ? '✅ Approved' : document.status === 'rejected' ? '❌ Rejected' : '🟠 Pending'}
-        </span>
+                                        // Determine the rejection reason based on document name
+                                        const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
+                                        const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
+                                        handleViewRejectionReason(rejectionReason);
+                                    }
+                                }}
+                                onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
+                                onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
+                            >
+                                <span>
+                                    {document.status === 'approved' ? '✅ Approved' : document.status === 'rejected' ? '❌ Rejected' : '🟠 Pending'}
+                                </span>
     </div>
 </div>
 
