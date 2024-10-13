@@ -8,8 +8,9 @@ import firebase from 'firebase/compat/app'; // Import firebase itself
 import * as THREE from 'three';
 import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+
 
 
 import error1 from '../images/error1.png';
@@ -91,6 +92,8 @@ const currentDate = new Date().toLocaleDateString('en-US', {
 const [show360ImageModal, setShow360ImageModal] = useState(false);
 const [current360ImageUrl, setCurrent360ImageUrl] = useState('');
 const [isValidUrl, setIsValidUrl] = useState(true);
+const [reviewedDocumentIndex, setReviewedDocumentIndex] = useState(null);
+const [newStatus, setNewStatus] = useState(null); // To store the new status
 
     const [rentalWarehouses, setRentalWarehouses] = useState([]);
     const [showRentalWarehousesModal, setShowRentalWarehousesModal] = useState(false);
@@ -316,7 +319,6 @@ const openSubmitDocumentsModal = async (warehouse) => {
     }
   };
   
- 
   const handleViewDocuments = async (warehouse) => {
     console.log("Warehouse Object:", warehouse);
     console.log("Warehouse ID:", warehouse.warehouseId);
@@ -326,8 +328,6 @@ const openSubmitDocumentsModal = async (warehouse) => {
         return;
     }
 
-
-    
     // Fetch the latest data from Firestore
     const warehouseData = await firestore.collection('rentedWarehouses').doc(warehouse.warehouseId).get();
     const data = warehouseData.data();
@@ -343,40 +343,46 @@ const openSubmitDocumentsModal = async (warehouse) => {
             name: 'Tax Identification Number', 
             url: data.documents?.taxIdentificationNumber, 
             status: data.documents?.taxidentificationnumberStatus, 
-            rejectionReason: '', // Initialize the rejection reason
+            resubmitted: data.documents?.taxIdentificationNumberResubmitted, // Access resubmitted field
+            rejectionReason: data.documents?.taxidentificationnumberRejectionReason, // Access rejection reason
         },
         { 
             name: 'BIR Registration', 
             url: data.documents?.birRegistration, 
             status: data.documents?.birregistrationStatus,
-            rejectionReason: '', // Initialize the rejection reason
+            resubmitted: data.documents?.birRegistrationResubmitted, // Access resubmitted field
+            rejectionReason: data.documents?.birregistrationRejectionReason, // Access rejection reason
         },
         { 
             name: 'Barangay Clearance', 
             url: data.documents?.barangayClearance, 
             status: data.documents?.barangayclearanceStatus,
-            rejectionReason: '', // Initialize the rejection reason
+            resubmitted: data.documents?.barangayClearanceResubmitted, // Assuming a similar structure for Barangay Clearance
+            rejectionReason: data.documents?.barangayclearanceRejectionReason, // Access rejection reason
         },
         { 
             name: 'Letter of Intent', 
             url: data.documents?.letterOfIntent, 
             status: data.documents?.letterofintentStatus,
-            rejectionReason: '', // Initialize the rejection reason
+            resubmitted: data.documents?.letterOfIntentResubmitted, // Access resubmitted field
+            rejectionReason: data.documents?.letterofintentRejectionReason, // Access rejection reason
         },
         { 
             name: 'Financial Capability Proof', 
             url: data.documents?.financialCapabilityProof, 
             status: data.documents?.financialcapabilityproofStatus,
-            rejectionReason: '', // Initialize the rejection reason
+            resubmitted: data.documents?.financialCapabilityProofResubmitted, // Access resubmitted field
+            rejectionReason: data.documents?.financialcapabilityproofRejectionReason, // Access rejection reason
         },
         { 
             name: 'Government Issued ID', 
             url: data.documents?.governmentIssuedId, 
             status: data.documents?.governmentissuedidStatus,
-            rejectionReason: '', // Initialize the rejection reason
+            resubmitted: data.documents?.governmentIssuedIdResubmitted, // Access resubmitted field
+            rejectionReason: data.documents?.governmentissuedidRejectionReason, // Access rejection reason
         },
     ].filter(doc => doc.url); // Filter out undefined documents
-    
+
     // Set documents state
     setSelectedWarehouseDocuments(documents);
     setSelectedWarehouse(warehouse);
@@ -394,6 +400,13 @@ const openSubmitDocumentsModal = async (warehouse) => {
     console.log("Is Lessor:", isLessor); // Log the result of lessor check
     console.log("Is Lessee:", isLessee); // Log the result of lessee check
 
+    // Check for rejected documents and log resubmission
+    documents.forEach(doc => {
+        if (doc.status === "rejected" && doc.resubmitted) {
+            console.log(`${doc.name} = Resubmitted`);
+        }
+    });
+
     if (isLessor) {
         // Open the documents modal for the lessor
         setShowDocumentsModal(true);
@@ -405,6 +418,10 @@ const openSubmitDocumentsModal = async (warehouse) => {
     }
 };
 
+
+const handleResubmittedClick = (index) => {
+    setReviewedDocumentIndex(index);
+};
 
 // Function to show the rejection reason modal
 const handleViewRejectionReason = (reason) => {
@@ -420,6 +437,12 @@ const handleRejectClick = (index) => {
 const handleDocumentStatusChange = (index, status) => {
     if (status === 'rejected') {
         handleRejectClick(index); // Open rejection reason modal
+    } else if (status === 'resubmitted') {
+        setSelectedWarehouseDocuments(prevDocuments => {
+            const updatedDocuments = [...prevDocuments];
+            updatedDocuments[index].status = status; // Update the status to 'resubmitted'
+            return updatedDocuments;
+        });
     } else {
         setSelectedWarehouseDocuments(prevDocuments => {
             const updatedDocuments = [...prevDocuments];
@@ -452,25 +475,40 @@ const handleSaveDocumentStatus = async () => {
         return;
     }
 
-    // Prepare the updated document statuses and rejection reasons
     const updatedDocumentStatuses = selectedWarehouseDocuments.reduce((acc, doc) => {
-        acc[`${doc.name.replace(/\s+/g, '').toLowerCase()}Status`] = doc.status;
-        
-        // Add rejection reason if available
-        if (doc.rejectionReason) {
-            acc[`${doc.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`] = doc.rejectionReason;
+        const fieldName = doc.name.replace(/\s+/g, '').toLowerCase();
+
+        acc[`documents.${fieldName}Status`] = doc.status;
+
+        if (doc.status === 'approved') {
+            acc[`documents.birRegistrationResubmitted`] = deleteField();
+            acc[`documents.letterOfIntentResubmitted`] = deleteField();
+            acc[`documents.taxIdentificationNumberResubmitted`] = deleteField();
+            acc[`documents.financialCapabilityProofResubmitted`] = deleteField();
+            acc[`documents.governmentIssuedIdResubmitted`] = deleteField();
         }
-        
+
+        if (doc.rejectionReason) {
+            acc[`documents.${fieldName}RejectionReason`] = doc.rejectionReason;
+        }
+
         return acc;
     }, {});
 
+    console.log("Updating document with:", updatedDocumentStatuses); // Log the structure for debugging
+
     try {
-        await firestore.collection('rentedWarehouses').doc(warehouseId).update({
-            documents: {
-                ...selectedWarehouse.documents, // Keep original URLs
-                ...updatedDocumentStatuses // Save updated statuses and rejection reasons
-            }
-        });
+        const db = getFirestore(); // Get Firestore instance
+        const docRef = doc(db, 'rentedWarehouses', warehouseId);
+
+        // Check if the document exists
+        const docSnapshot = await getDoc(docRef);
+        if (!docSnapshot.exists()) {
+            console.error("Document does not exist:", warehouseId);
+            return; // Exit early if the document doesn't exist
+        }
+
+        await updateDoc(docRef, updatedDocumentStatuses); // Perform the update
 
         // Update local state after saving
         setSelectedWarehouseDocuments(prevDocuments => 
@@ -490,13 +528,11 @@ const handleSaveDocumentStatus = async () => {
         // Refresh the document list after saving
         handleViewDocuments(selectedWarehouse); // Refresh documents to get updated status
     } catch (error) {
-        console.error("Error updating document:", error);
-        alert("Failed to update document.");
+        console.error("Error updating document:", error.message); // Log the error message
+        alert("Failed to update document: " + error.message); // Display the error message
     }
 };
 
-
-  
   // Function to handle document approval/rejection
   const handleDocumentApproval = (documentName, status) => {
     setSelectedWarehouseDocuments(prevDocs => 
@@ -2181,50 +2217,72 @@ return (
             {selectedWarehouseDocuments.length > 0 ? (
                 <ul className="space-y-4">
                     {selectedWarehouseDocuments.map((document, index) => (
-                         <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
-                         <span className="text-lg">{document.name}</span>
-                         <div className="flex items-center space-x-4">
-                             {/* View Button */}
-                             <button
-                                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
-                                 onClick={() => window.open(document.url, '_blank')}
-                             >
-                                 View
-                             </button>
-                                         {/* Document Status */}
-                    <div className="relative">
-                        <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
-                            <div
-                                className={`flex items-center justify-center text-sm font-semibold w-32 ${document.status === 'approved' ? 'text-green-600' : document.status === 'rejected' ? 'text-red-600 cursor-pointer hover:underline' : 'text-orange-600'}`}
-                                onClick={() => {
-                                    if (document.status === 'rejected') {
-                                        // Log the document name or URL to the console
-                                        console.log("Rejected Document:", document.name, document.url);
-                                        
-                                        // Set the selected document for resubmission
-                                        setSelectedDocument(document); // Track the selected document
+                        <li key={index} className="flex justify-between items-center p-4 bg-gray-100 rounded-lg">
+                            <span className="text-lg">{document.name}</span>
+                            <div className="flex items-center space-x-4">
+                                {/* View Button */}
+                                <button
+                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition duration-300"
+                                    onClick={() => window.open(document.url, '_blank')}
+                                >
+                                    View
+                                </button>
+                               
+                               {/* Document Status */}
+<div className="relative">
+    <div className="flex items-center justify-center p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
+        <div
+            className={`flex items-center justify-center text-sm font-semibold w-32 ${
+                document.status === 'approved'
+                    ? 'text-green-600'
+                    : document.resubmitted === 'Resubmitted'
+                    ? 'text-orange-600' // Use this for Resubmitted (shows Validating text)
+                    : document.status === 'rejected'
+                    ? 'text-red-600 cursor-pointer hover:underline'
+                    : 'text-orange-600' // Fallback for other statuses
+            }`}
+            onClick={() => {
+                // Prevent clicking if status is Resubmitted
+                if (document.resubmitted === 'Resubmitted') {
+                    return; // Prevent click if resubmitted
+                }
 
-                                        // Determine the rejection reason based on document name
-                                        const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
-                                        const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
-                                        handleViewRejectionReason(rejectionReason);
-                                    }
-                                }}
-                                onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
-                                onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
-                            >
-                                <span>
-                                    {document.status === 'approved' ? '✅ Approved' : document.status === 'rejected' ? '❌ Rejected' : '🟠 Pending'}
-                                </span>
+                if (document.status === 'rejected') {
+                    // Log the document name or URL to the console
+                    console.log("Rejected Document:", document.name, document.url);
+                    
+                    // Set the selected document for resubmission
+                    setSelectedDocument(document); // Track the selected document
+
+                    // Determine the rejection reason based on document name
+                    const rejectionReasonField = `${document.name.replace(/\s+/g, '').toLowerCase()}RejectionReason`;
+                    const rejectionReason = selectedWarehouse.documents[rejectionReasonField];
+                    handleViewRejectionReason(rejectionReason);
+                }
+            }}
+            onMouseEnter={() => setTooltipVisibleIndex(index)} // Show tooltip for the hovered document
+            onMouseLeave={() => setTooltipVisibleIndex(null)} // Hide tooltip when not hovering
+        >
+            <span>
+                {document.status === 'approved'
+                    ? '✅ Approved'
+                    : document.resubmitted === 'Resubmitted'
+                    ? '🟠 Validating' // Display "Validating" for Resubmitted
+                    : document.status === 'rejected'
+                    ? '❌ Rejected'
+                    : '🟠 Pending'}
+            </span>
+        </div>
     </div>
-</div>
 
-                                            {/* Tooltip */}
-                                            {document.status === 'rejected' && tooltipVisibleIndex === index && (
-                                                <div className="absolute z-10 w-48 p-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg -top-10 left-1/2 transform -translate-x-1/2 text-center">
-                                                    <span className="font-medium">Click to view the reason of rejection</span>
-                                                </div>
-                                            )}
+
+{/* Tooltip */}
+{document.status === 'rejected' && tooltipVisibleIndex === index && document.resubmitted !== 'Resubmitted' && (
+    <div className="absolute z-10 w-48 p-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg -top-10 left-1/2 transform -translate-x-1/2 text-center">
+        <span className="font-medium">Click to view the reason of rejection</span>
+    </div>
+)}
+
 
 
                                 </div>
@@ -2778,39 +2836,51 @@ return (
                                     Download
                                 </button>
                                 <div className="flex items-center justify-between p-2 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs">
-                                    {document.status ? (
-                                        <div className={`flex items-center justify-center text-sm font-semibold ${document.status === 'approved' ? 'text-green-600' : 'text-red-600'} w-32`}>
-                                            <span>
-                                                {document.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center space-x-2 w-full">
-                                            <label className="flex items-center text-sm">
-                                                <input
-                                                    type="radio"
-                                                    name={`status-${index}`}
-                                                    value="approved"
-                                                    checked={document.status === 'approved'}
-                                                    onChange={() => handleDocumentStatusChange(index, 'approved')}
-                                                    className="form-radio h-4 w-4 text-green-600 accent-green-600"
-                                                />
-                                                <span className="ml-1 text-green-600">Approve</span>
-                                            </label>
-                                            <label className="flex items-center text-sm">
-                                                <input
-                                                    type="radio"
-                                                    name={`status-${index}`}
-                                                    value="rejected"
-                                                    checked={document.status === 'rejected'}
-                                                    onChange={() => handleDocumentStatusChange(index, 'rejected')}
-                                                    className="form-radio h-4 w-4 text-red-600 accent-red-600"
-                                                />
-                                                <span className="ml-1 text-red-600">Reject</span>
-                                            </label>
-                                        </div>
-                                    )}
-                                </div>
+    {document.status ? (
+                                        <div className={`flex items-center justify-center text-sm font-semibold ${document.status === 'approved' ? 'text-green-600' : document.resubmitted ? 'text-orange-600 cursor-pointer' : 'text-red-600'} w-32`} onClick={document.resubmitted ? () => handleResubmittedClick(index) : undefined}>
+           <span>
+    {document.status === 'approved' ? (
+        '✅ Approved'
+    ) : document.resubmitted ? (
+        <>
+            <span className="text-orange-600 hover:underline hover:font-bold">
+                🔄 Resubmitted
+            </span>
+        </>
+    ) : (
+        '❌ Rejected'
+    )}
+</span>
+
+        </div>
+    ) : (
+        <div className="flex items-center space-x-2 w-full">
+            <label className="flex items-center text-sm">
+                <input
+                    type="radio"
+                    name={`status-${index}`}
+                    value="approved"
+                    checked={document.status === 'approved'}
+                    onChange={() => handleDocumentStatusChange(index, 'approved')}
+                    className="form-radio h-4 w-4 text-green-600 accent-green-600"
+                />
+                <span className="ml-1 text-green-600">Approve</span>
+            </label>
+            <label className="flex items-center text-sm">
+                <input
+                    type="radio"
+                    name={`status-${index}`}
+                    value="rejected"
+                    checked={document.status === 'rejected'}
+                    onChange={() => handleDocumentStatusChange(index, 'rejected')}
+                    className="form-radio h-4 w-4 text-red-600 accent-red-600"
+                />
+                <span className="ml-1 text-red-600">Reject</span>
+            </label>
+        </div>
+    )}
+</div>
+
                             </div>
                         </li>
                     ))}
@@ -2830,6 +2900,63 @@ return (
         )}
     </div>
 )}
+
+{/* Resubmitted Modal */}
+{reviewedDocumentIndex !== null && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full">
+            <h3 className="text-2xl font-semibold mb-4 text-center text-gray-800">Review Document Status</h3>
+            <p className="mb-6 text-center text-gray-600">Please select the status for the document:</p>
+            <div className="flex justify-center space-x-10 mb-6">
+                <label className="flex items-center text-lg cursor-pointer">
+                    <input
+                        type="radio"
+                        name="review-status"
+                        value="approved"
+                        checked={newStatus === 'approved'}
+                        onChange={() => setNewStatus('approved')}
+                        className="form-radio h-5 w-5 text-green-600 accent-green-600"
+                    />
+                    <span className="ml-2 text-green-600">Approve</span>
+                </label>
+                <label className="flex items-center text-lg cursor-pointer">
+                    <input
+                        type="radio"
+                        name="review-status"
+                        value="rejected"
+                        checked={newStatus === 'rejected'}
+                        onChange={() => setNewStatus('rejected')}
+                        className="form-radio h-5 w-5 text-red-600 accent-red-600"
+                    />
+                    <span className="ml-2 text-red-600">Reject</span>
+                </label>
+            </div>
+            <div className="mt-8 flex justify-center space-x-4">
+                <button
+                    className="bg-green-600 text-white px-6 py-2 rounded-lg shadow-md"
+                    onClick={() => {
+                        const updatedDocuments = [...selectedWarehouseDocuments];
+                        updatedDocuments[reviewedDocumentIndex].status = newStatus; // Update the status
+                        setSelectedWarehouseDocuments(updatedDocuments); // Update local state
+                        setReviewedDocumentIndex(null); // Close modal
+                    }}
+                >
+                    Confirm
+                </button>
+                <button
+                    className="bg-red-600 text-white px-6 py-2 rounded-lg shadow-md"
+                    onClick={() => setReviewedDocumentIndex(null)} // Close modal
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
+
+
 
 {/* Rejection Reason Modal */}
 {rejectReasonModalOpen && (
