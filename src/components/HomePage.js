@@ -9,7 +9,23 @@ import clearIcon from '../images/broom.png';
 import userIcon from '../images/userwhite.png';
 import sampleImage from '../images/sample.jpg';
 import Footer from './Footer'; // Import the Footer component
-
+import emergencyExitIcon from '../images/emergency-exit.png';
+import rampIcon from '../images/ramp.png';
+import availabilityIcon from '../images/availability.png';
+import wifiIcon from '../images/wifi.png';
+import airConditionerIcon from '../images/air-conditioner.png';
+import terminalIcon from '../images/terminal.png';
+import fireAlarmIcon from '../images/fire-alarm.png';
+import elevatorIcon from '../images/elevator.png';
+import fenceIcon from '../images/fence.png';
+import forkliftIcon from '../images/forklift.png';
+import carIcon from '../images/car.png';
+import policemanIcon from '../images/policeman.png';
+import restRoom from '../images/toilet.png';
+import meetingRoomIcon from '../images/meeting-room.png';
+import securityCameraIcon from '../images/security-camera.png';
+import keyIcon from '../images/key.png';
+import receptionBellIcon from '../images/reception-bell.png';
 import locationTagIcon from '../images/location.png';
 import priceTagIcon from '../images/price-tag.png';
 import infoIcon from '../images/info.png';
@@ -26,19 +42,44 @@ import billIcon from '../images/bill.png'; // Import bill icon
 import leaseIcon from '../images/lease.png'; // Import lease icon
 import reportIcon from '../images/problem.png'; // Import report icon
 
+
 // Import CSS file for animations
 import './homepage.css';
-
-// Function to fetch verified warehouses
-const fetchVerifiedWarehouses = async (setVerifiedWarehouses) => {
+const fetchVerifiedWarehouses = async (setVerifiedWarehouses, sortOption, minPrice, maxPrice, selectedAmenity) => {
     try {
-        const warehousesRef = firestore.collection('warehouses')
-            .where('status', '==', 'verified'); // Fetch only verified warehouses
+        let warehousesRef = firestore.collection('warehouses')
+            .where('status', '==', 'verified');
+
+        // Apply price filtering
+        if (minPrice || maxPrice) {
+            if (minPrice) {
+                warehousesRef = warehousesRef.where('price', '>=', parseFloat(minPrice));
+            }
+            if (maxPrice) {
+                warehousesRef = warehousesRef.where('price', '<=', parseFloat(maxPrice));
+            }
+        }
 
         const snapshot = await warehousesRef.get();
-        const verifiedWarehousesData = snapshot.docs
+        let verifiedWarehousesData = snapshot.docs
             .map(doc => doc.data())
-            .filter(warehouse => warehouse.rentStatus !== 'Rented'); // Filter out rented warehouses
+            .filter(warehouse => warehouse.rentStatus !== 'Rented');
+
+        // Filter by selected amenity on the client side
+        if (selectedAmenity) {
+            verifiedWarehousesData = verifiedWarehousesData.filter(warehouse => 
+                warehouse.amenities.some(amenity => amenity.name === selectedAmenity)
+            );
+        }
+
+        // Sort based on user selection
+        if (sortOption === 'price-asc') {
+            verifiedWarehousesData.sort((a, b) => a.price - b.price);
+        } else if (sortOption === 'price-desc') {
+            verifiedWarehousesData.sort((a, b) => b.price - a.price);
+        } else if (sortOption === 'date-added') {
+            verifiedWarehousesData.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+        }
 
         setVerifiedWarehouses(verifiedWarehousesData);
     } catch (error) {
@@ -47,8 +88,31 @@ const fetchVerifiedWarehouses = async (setVerifiedWarehouses) => {
 };
 
 
+// Define your amenities array
+const amenitiesList = [
+    { name: 'CCTV', icon: securityCameraIcon },
+    { name: 'Comfort Room', icon: restRoom },
+    { name: 'Function Room', icon: meetingRoomIcon },
+    { name: 'Fire Exit', icon: emergencyExitIcon },
+    { name: 'Reception Room', icon: receptionBellIcon },
+    { name: 'Ramp', icon: rampIcon },
+    { name: 'Availability', icon: availabilityIcon },
+    { name: 'WiFi', icon: wifiIcon },
+    { name: 'Air Conditioner', icon: airConditionerIcon },
+    { name: 'Terminal', icon: terminalIcon },
+    { name: 'Fire Alarm', icon: fireAlarmIcon },
+    { name: 'Elevator', icon: elevatorIcon },
+    { name: 'Fence', icon: fenceIcon },
+    { name: 'Forklift', icon: forkliftIcon },
+    { name: 'Car', icon: carIcon },
+    { name: 'Security Guard', icon: policemanIcon },
+];
+
 
 function HomePage() {
+    const [sortOption, setSortOption] = useState(''); // State for sort selection
+    const [minPrice, setMinPrice] = useState(''); // State for minimum price filter
+    const [maxPrice, setMaxPrice] = useState(''); // State for maximum price filter
     const navigate = useNavigate(); // Initialize useNavigate
     const [profileImage, setProfileImage] = useState(defaultProfileImage);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -58,7 +122,11 @@ function HomePage() {
     const [value, setValue] = useState(''); // Define value state variable
     const [verifiedWarehouses, setVerifiedWarehouses] = useState([]);
     const [showConfirmation, setShowConfirmation] = useState(false); // Define showConfirmation state variable
+    const [warehouses, setWarehouses] = useState([]);
+    const [selectedAmenity, setSelectedAmenity] = useState('');
 
+
+    
     // Effect to check if user is already logged in
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -82,6 +150,24 @@ function HomePage() {
         fetchVerifiedWarehouses(setVerifiedWarehouses);
     }, []);
 
+    
+    useEffect(() => {
+        fetchVerifiedWarehouses(setVerifiedWarehouses, sortOption, minPrice, maxPrice, selectedAmenity);
+    }, [sortOption, minPrice, maxPrice, selectedAmenity]);
+    
+    const handleSortChange = (e) => {
+        setSortOption(e.target.value);
+    };
+
+    const handlePriceRangeChange = (event) => {
+        const [min, max] = event.target.value.split('-');
+        setMinPrice(min);
+        setMaxPrice(max);
+    };
+
+    
+   
+    
     const handleLogout = () => {
         setShowConfirmation(false);
         auth.signOut()
@@ -238,6 +324,45 @@ function HomePage() {
                     </div>
                 </div>
             </nav>
+                {/* Sorting and Price Range Filters */}
+<div className="container mx-auto px-8 py-6">
+    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+        {/* Sort Dropdown */}
+        <select
+            value={sortOption}
+            onChange={handleSortChange}
+            className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out shadow-sm hover:shadow-md"
+        >
+            <option value="">Sort By</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="date-added">Date Added</option>
+        </select>
+
+        {/* Amenities Dropdown on the Right */}
+        <div className="ml-auto mt-4 md:mt-0">
+            <h3 className="text-xl font-bold text-gray-800">Amenities:</h3>
+            <select
+                value={selectedAmenity}
+                onChange={(e) => setSelectedAmenity(e.target.value)}
+                className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out shadow-sm hover:shadow-md"
+            >
+                <option value="">Select an Amenity</option>
+                {amenitiesList.map((amenity) => (
+                    <option key={amenity.name} value={amenity.name}>
+                        <div className="flex items-center">
+                            <img src={amenity.icon} alt={amenity.name} className="inline-block w-4 h-4 mr-2" />
+                            {amenity.name}
+                        </div>
+                    </option>
+                ))}
+            </select>
+        </div>
+    </div>
+</div>
+
+
+
        {/* Display selected warehouse data */}
        {selectedWarehouse ? (
                 <div className="container mx-auto px-8 py-10 rounded-lg mt-8">

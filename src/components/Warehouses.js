@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { firestore } from '../firebase'; 
 import Navigation from './Navigation'; 
 import loupe from '../images/loupe.png';
+
+import Chart from 'chart.js/auto'; // Import Chart.js
 
 import * as XLSX from 'xlsx';
 
@@ -12,10 +14,68 @@ function Warehouses() {
     const [isModalOpen, setIsModalOpen] = useState(false); // State for lessor modal visibility
     const [isLesseeModalOpen, setIsLesseeModalOpen] = useState(false); // State for lessee modal visibility
     const [searchQuery, setSearchQuery] = useState('');
+    const [showChart, setShowChart] = useState(false);
+    const [chartData, setChartData] = useState({});
+    const canvasRef = useRef(null); // Create a ref for the canvas
+
     const [filteredWarehouses, setFilteredWarehouses] = useState(warehouses);
     const [sortField, setSortField] = useState('name');
 const [sortOrder, setSortOrder] = useState('asc');
     
+
+const getRentedWarehousesData = () => {
+    const rentedWarehouses = warehouses.filter(warehouse => warehouse.rentStatus === 'Rented'); // Ensure you're filtering correctly
+    const labels = rentedWarehouses.map(warehouse => warehouse.name); // Labels for the chart
+    const data = rentedWarehouses.map(warehouse => warehouse.price); // Data for the chart
+    return { labels, data };
+};
+const renderChart = () => {
+    if (!canvasRef.current) return; // Check if canvasRef is available
+    const { labels, data } = getRentedWarehousesData();
+    const ctx = canvasRef.current.getContext('2d');
+
+    // Calculate the highest and lowest prices
+    const maxPrice = Math.max(...data);
+    const minPrice = Math.min(...data);
+
+    // Display max and min prices in a text element
+    const priceInfoElement = document.getElementById('priceInfo');
+    if (priceInfoElement) {
+        priceInfoElement.innerHTML = `Highest Price: ₱${maxPrice.toLocaleString()}, Lowest Price: ₱${minPrice.toLocaleString()}`;
+    }
+
+    if (window.warehouseChart) {
+        window.warehouseChart.destroy();
+    }
+
+    window.warehouseChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Rented Warehouse Prices',
+                data: data,
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+            }],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                },
+            },
+        },
+    });
+};
+
+
+ // Function to handle chart button click
+ const handleChartButtonClick = () => {
+    setShowChart(true);
+};
 
 const sortWarehouses = (field) => {
     const sorted = [...filteredWarehouses].sort((a, b) => {
@@ -48,23 +108,25 @@ const exportToExcel = () => {
     // Write the workbook to a file
     XLSX.writeFile(wb, 'warehouses.xlsx');
 };
-    useEffect(() => {
-        // Fetch warehouses where rentStatus is 'Rented'
-        const fetchWarehouses = async () => {
-            const warehousesSnapshot = await firestore.collection('warehouses')
-                .where('rentStatus', '==', 'Rented')
-                .get();
+useEffect(() => {
+    // Fetch warehouses where rentStatus is 'Rented'
+    const fetchWarehouses = async () => {
+        const warehousesSnapshot = await firestore.collection('warehouses')
+            .where('rentStatus', '==', 'Rented')
+            .get();
 
-            const warehousesData = warehousesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
+        const warehousesData = warehousesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
 
-            setWarehouses(warehousesData);
-        };
+        setWarehouses(warehousesData);
+        renderChart(); // Call renderChart here
+    };
 
-        fetchWarehouses();
-    }, []);
+    fetchWarehouses();
+}, []);
+
 
     useEffect(() => {
         setFilteredWarehouses(
@@ -95,7 +157,19 @@ const exportToExcel = () => {
     const closeModal = () => {
         setIsModalOpen(false);
         setSelectedUser(null);
+        setShowChart(false);
+        if (window.warehouseChart) {
+            window.warehouseChart.destroy(); // Destroy the chart to avoid memory leaks
+            window.warehouseChart = null; // Set it to null to reset
+        }
     };
+    useEffect(() => {
+        if (showChart && canvasRef.current) {
+            renderChart(); // Call to render the chart when modal opens
+        }
+    }, [showChart, warehouses]); // Add warehouses to the dependency array
+    
+
 
     const closeLesseeModal = () => {
         setIsLesseeModalOpen(false);
@@ -148,15 +222,53 @@ const exportToExcel = () => {
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5"
                 />
             </div>
-            <button 
-                onClick={exportToExcel} 
-                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md"
-            >
-                Export to Excel
-            </button>
+           
+            <div className="flex space-x-2">
+                    <button 
+                        onClick={exportToExcel} 
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md"
+                    >
+                        Export to Excel
+                    </button>
+                    <button 
+                        onClick={handleChartButtonClick} 
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-md"
+                    >
+                        Chart
+                    </button>
+                </div>
         </div>
     </div>
-    
+ {/* Popup Modal for Chart */}
+{showChart && (
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-4 rounded shadow-md w-11/12 md:w-3/5 lg:w-2/5 max-h-1/3 overflow-auto"> {/* Adjusted for smaller height and width */}
+            <h2 className="text-lg font-semibold mb-2">Rented Warehouse Chart</h2>
+            
+            {/* Text showing highest and lowest prices */}
+            <div id="priceInfo" className="flex justify-end text-sm mb-2"> {/* Flex container for right alignment */}
+                <div>
+                    Highest Price: ₱X,XXX <br />
+                    Lowest Price: ₱X,XXX
+                </div>
+            </div>
+
+            {/* Chart Canvas */}
+            <canvas ref={canvasRef} width="400" height="200"></canvas> {/* Adjusted canvas height */}
+            
+            <div className="flex justify-end mt-4"> {/* Flex container for button alignment */}
+                <button 
+                    onClick={closeModal} 
+                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
     {/* Adding space at the bottom */}
     <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-br from-gray-100 to-white"></div>
 </div>
