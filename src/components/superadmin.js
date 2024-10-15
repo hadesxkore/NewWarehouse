@@ -112,7 +112,7 @@ const openConfirmModal = (warehouseId) => {
 
     const handleReject = (warehouseId) => {
         const warehouse = uploadedWarehouses.find(wh => wh.id === warehouseId);
-        if (warehouse && isWarehouseRented(warehouse.rentStatus)) {
+        if (warehouse &&  warehouse.rentStatus === 'Rented') {
             setErrorMessage('This warehouse is currently rented and cannot be rejected.');
             setIsErrorModalOpen(true);
             return;
@@ -131,11 +131,12 @@ const openConfirmModal = (warehouseId) => {
 
     const handleDelete = (warehouseId) => {
         const warehouse = uploadedWarehouses.find(wh => wh.id === warehouseId);
-        if (warehouse && isWarehouseRented(warehouse.rentStatus)) {
+        if (warehouse && warehouse.rentStatus === 'Rented') {
             setErrorMessage('This warehouse is currently rented and cannot be deleted.');
             setIsDeleteErrorModalOpen(true);
             return;
         }
+        
         setWarehouseToDelete(warehouseId);
         setIsDeleteConfirmModalOpen(true);
     };
