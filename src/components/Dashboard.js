@@ -1887,104 +1887,108 @@ return (
 
 
 
-
 {currentView === 'uploaded' && (
-    <div className="container mx-auto px-8 py-10 rounded-lg">
-     {/* Filter buttons */}
-<div className="flex justify-center mb-8 space-x-2">
-    <button
-        onClick={() => handleFilterChange('All')}
-        className={`px-4 py-2 rounded-lg mr-2 ${
-            filterStatus === 'All' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-        }`}
-    >
-        All ({filterCounts && filterCounts.All})
-    </button>
-    <button
-        onClick={() => handleFilterChange('Pending')}
-        className={`px-4 py-2 rounded-lg mr-2 ${
-            filterStatus === 'Pending' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-        }`}
-    >
-        Pending ({filterCounts && filterCounts.Pending})
-    </button>
-    <button
-        onClick={() => handleFilterChange('Verified')}
-        className={`px-4 py-2 rounded-lg mr-2 ${
-            filterStatus === 'Verified' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-        }`}
-    >
-        Verified ({filterCounts && filterCounts.Verified})
-    </button>
-    <button
-        onClick={() => handleFilterChange('Rejected')}
-        className={`px-4 py-2 rounded-lg mr-2 ${
-            filterStatus === 'Rejected' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-        }`}
-    >
-        Rejected ({filterCounts && filterCounts.Rejected})
-    </button>
-</div>
-  
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {userWarehouses.map(warehouse => (
-                <div key={warehouse.id} className="bg-white p-4 rounded-lg shadow-md relative ">
-                    <div className="flex justify-between mb-2">
-                    <h3 className="text-lg font-semibold">{warehouse.name}</h3>
-                {warehouse.status === 'rejected' && (
-                    <span className="relative">
-                        <span 
-                            className="absolute top-0 right-0 mr-2 flex items-center justify-center cursor-pointer "
-                            style={{ width: '28px', height: '28px' }}
-                            onClick={() => openRejectReasonModal(warehouse.rejectionReason)}
-                            title="Click to see reason"
-                        >
-                            <img src={error1} alt="Error Icon" className="h-6 w-6 pumping-icon" />
-                        </span>
-                    </span>
-                )}
-            </div>
-                    <p className="text-gray-600 mb-2">
-                        <img src={location} alt="Location Icon" className="inline-block h-4 mr-2" /> {/* Location Icon */}
+    <div className="container mx-auto px-10 py-12 rounded-lg bg-gray-100 mt-4">
+        {/* Filter buttons */}
+        <div className="flex justify-center mb-8 space-x-4">
+            <button
+                onClick={() => handleFilterChange('All')}
+                className={`px-5 py-3 rounded-lg mr-2 ${
+                    filterStatus === 'All' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+            >
+                All ({filterCounts && filterCounts.All})
+            </button>
+            <button
+                onClick={() => handleFilterChange('Pending')}
+                className={`px-5 py-3 rounded-lg mr-2 ${
+                    filterStatus === 'Pending' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+            >
+                Pending ({filterCounts && filterCounts.Pending})
+            </button>
+            <button
+                onClick={() => handleFilterChange('Verified')}
+                className={`px-5 py-3 rounded-lg mr-2 ${
+                    filterStatus === 'Verified' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+            >
+                Verified ({filterCounts && filterCounts.Verified})
+            </button>
+            <button
+                onClick={() => handleFilterChange('Rejected')}
+                className={`px-5 py-3 rounded-lg mr-2 ${
+                    filterStatus === 'Rejected' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+            >
+                Rejected ({filterCounts && filterCounts.Rejected})
+            </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+            {userWarehouses.map(warehouse => (
+                <div key={warehouse.id} className="bg-white p-6 rounded-lg shadow-lg relative max-w-4xl mx-auto">
+                <div className="flex justify-between mb-4">
+                        <h3 className="text-xl font-semibold">{warehouse.name}</h3>
+                        {warehouse.status === 'rejected' && (
+                            <span className="relative">
+                                <span
+                                    className="absolute top-0 right-0 mr-2 flex items-center justify-center cursor-pointer"
+                                    style={{ width: '28px', height: '28px' }}
+                                    onClick={() => openRejectReasonModal(warehouse.rejectionReason)}
+                                    title="Click to see reason"
+                                >
+                                    <img src={error1} alt="Error Icon" className="h-6 w-6 pumping-icon" />
+                                </span>
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-gray-600 mb-3 text-lg">
+                        <img src={location} alt="Location Icon" className="inline-block h-4 mr-2" />
                         <span className="font-bold">Address:</span> {warehouse.address}
                     </p>
-                    <p className="text-gray-600 mb-2">
-                        <img src={infoIcon} alt="Info Icon" className="inline-block h-4 mr-2" /> {/* Info Icon */}
+                    <p className="text-gray-600 mb-3 text-lg">
+                        <img src={infoIcon} alt="Info Icon" className="inline-block h-4 mr-2" />
                         <span className="font-bold">Description:</span> {warehouse.description}
                     </p>
-                    <p className="text-gray-600 mb-2">
-                        <img src={priceTagIcon} alt="Price Tag Icon" className="inline-block h-4 mr-2" /> {/* Price Tag Icon */}
+                    <p className="text-gray-600 mb-3 text-lg">
+                        <img src={priceTagIcon} alt="Price Tag Icon" className="inline-block h-4 mr-2" />
                         <span className="font-bold">Price:</span> ₱{warehouse.price}
                     </p>
-                    <p>Status:
-                        {warehouse.status === 'pending' && <span className="status-text" style={{ color: 'orange' }}>Pending</span>}
-                        {warehouse.status === 'verified' && <span className="status-text" style={{ color: 'green' }}>Verified</span>}
+                    <p className="text-lg">
+                        Status:
+                        {warehouse.status === 'pending' && <span className="status-text" style={{ color: 'orange' }}> Pending</span>}
+                        {warehouse.status === 'verified' && <span className="status-text" style={{ color: 'green' }}> Verified</span>}
                         {warehouse.status === 'rejected' && (
                             <span className="status-text" style={{ color: 'red' }}>
                                 Rejected
-                               
                             </span>
                         )}
                     </p>
-                    <div className="flex flex-wrap mt-2">
+                    <div className="flex flex-wrap mt-3">
                         {warehouse.images.map((imageUrl, index) => (
-                            <img key={index} src={imageUrl} alt={`Image ${index + 1}`} className="h-16 w-16 object-cover rounded-md mr-2 mb-2" />
+                            <img key={index} src={imageUrl} alt={`Image ${index + 1}`} className="h-20 w-20 object-cover rounded-md mr-2 mb-2" />
                         ))}
                     </div>
-                    <div className="flex flex-wrap mt-2">
+                    <div className="flex flex-wrap mt-3">
                         {warehouse.videos.map((videoUrl, index) => (
-                            <video key={index} src={videoUrl} controls className="h-16 w-16 rounded-md mr-2 mb-2"></video>
+                            <video key={index} src={videoUrl} controls className="h-20 w-20 rounded-md mr-2 mb-2"></video>
                         ))}
                     </div>
                     <span className="font-bold">Upload Date:</span> {warehouse.uploadDate ? new Date(warehouse.uploadDate.toDate()).toLocaleString() : 'Unknown'}
-                    <div className="flex justify-end mt-4 space-x-4">
-                        <button className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => openCarousel(warehouse.images)}>View</button>
-                        <button className="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => handleDeleteWarehouse(warehouse)}>Delete</button>
-                        <button className="bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600 transition duration-300 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1" onClick={() => handleEditWarehouse(warehouse)}>Edit</button>
-
+                    <div className="flex justify-center mt-6 space-x-4">
+                        <button className="bg-blue-500 text-white font-semibold py-2 px-4 rounded w-36 hover:bg-blue-600 transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1" onClick={() => openCarousel(warehouse.images)}>
+                            View
+                        </button>
+                        <button className="bg-red-500 text-white font-semibold py-2 px-4 rounded w-36 hover:bg-red-600 transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1" onClick={() => handleDeleteWarehouse(warehouse)}>
+                            Delete
+                        </button>
+                        <button className="bg-green-500 text-white font-semibold py-2 px-4 rounded w-36 hover:bg-green-600 transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1" onClick={() => handleEditWarehouse(warehouse)}>
+                            Edit
+                        </button>
                         <button
                             type="button"
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 shadow-md hover:shadow-lg transform hover:-translate-y-1 text-white font-semibold py-2 px-4 rounded w-36"
                             onClick={() => handleShow360Tour(warehouse.image360Url)}
                         >
                             Show 360 Tour
@@ -1992,6 +1996,10 @@ return (
                     </div>
                 </div>
             ))}
+  
+
+
+            
 {/* Confirmation Modal */}
 {showDeleteModal && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-50">
@@ -2070,15 +2078,25 @@ return (
                     </div>
                 </div>
             )}
-            {isSuccessModalOpen && (
+         {isSuccessModalOpen && (
     <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
-        <div className="relative bg-white p-6 rounded-lg shadow-md w-full max-w-sm text-center">
-            <span className="absolute top-2 right-2 text-2xl cursor-pointer" onClick={() => setIsSuccessModalOpen(false)}>&times;</span>
-            <h2 className="text-2xl font-bold mb-4">Success</h2>
-            <p>Your changes have been saved successfully!</p>
+        <div className="relative bg-white p-8 rounded-lg shadow-lg w-full max-w-md text-center"> {/* Adjusted padding and max width */}
+            <span className="absolute top-3 right-3 text-3xl cursor-pointer" onClick={() => setIsSuccessModalOpen(false)}>&times;</span>
+            
+            {/* Checkmark Icon */}
+            <div className="flex justify-center mb-4">
+                <div className="bg-green-500 rounded-full p-2 shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
+
+            <h2 className="text-3xl font-bold mb-4 text-green-500">Success</h2>
+            <p className="text-lg mb-6">Your changes have been saved successfully!</p>
             <button 
                 type="button" 
-                className="mt-4 bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+                className="mt-4 bg-blue-500 text-white font-semibold py-2 px-6 rounded hover:bg-blue-600 transition duration-300 shadow-md"
                 onClick={() => setIsSuccessModalOpen(false)}
             >
                 OK
@@ -2086,6 +2104,7 @@ return (
         </div>
     </div>
 )}
+
 
              {/* Modal for Rejection Reason */}
              {isRejectReasonModalOpen && (

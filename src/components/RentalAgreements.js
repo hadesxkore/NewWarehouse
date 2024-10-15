@@ -326,10 +326,23 @@ function RentalAgreements() {
 {successMessage2 && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
         <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
-                <p className="text-lg font-semibold mb-4 text-green-400 text-center">Termination successful!</p>
-                <p className="mb-4 text-center">Termination Reason:</p>
-                <p className="text-gray-700 text-center">{terminationReason}</p>
+            <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md text-center">
+                
+                {/* Checkmark Icon Inside Modal */}
+                <div className="flex justify-center items-center mb-6">
+                    <div className="bg-green-500 rounded-full p-4 shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Success Text */}
+                <p className="text-lg font-semibold mb-4 text-green-400">Termination successful!</p>
+                <p className="mb-4">Termination Reason:</p>
+                <p className="text-gray-700">{terminationReason}</p>
+                
+                {/* Close Button */}
                 <div className="flex justify-center mt-6">
                     <button
                         onClick={() => setSuccessMessage2(false)}
@@ -342,6 +355,7 @@ function RentalAgreements() {
         </div>
     </div>
 )}
+
 
        {modalVisible && (
                         <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
