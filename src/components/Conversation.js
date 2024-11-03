@@ -40,7 +40,7 @@ const Conversation = () => {
                 // Determine the role based on rentedWarehouses collection
                 const ownerParticipantId = conversationData.participants.find(participant => participant !== currentUserId);
                 const rentedWarehousesRef = firestore.collection('rentedWarehouses');
-                const rentedWarehousesSnapshot = await rentedWarehousesRef.where('userUid', '==', ownerParticipantId).get();
+                const rentedWarehousesSnapshot = await rentedWarehousesRef.where('ownerUid', '==', ownerParticipantId).get();
                 
                 if (!rentedWarehousesSnapshot.empty) {
                     setOwnerRole('Lessor');
