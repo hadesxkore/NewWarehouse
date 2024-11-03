@@ -318,81 +318,85 @@ const handleCloseModal = () => {
         <div>
             <Navbar />
             <div className="bg-gray-100 min-h-screen flex flex-col justify-center items-center">
-                <div className="container mx-auto px-4 py-8">
-                    <div className="bg-white rounded-lg shadow-lg p-8 md:flex">
-                        <div className="md:w-1/2 mb-8 md:mb-0 mt-2">
-                        <Carousel showThumbs={false} showArrows={true} infiniteLoop={true} autoPlay={true} interval={5000} transitionTime={500}>
-                                {warehouse.images.map((imageUrl, index) => (
-                                    <div key={index}>
-                                        <img src={imageUrl} alt={`Warehouse Image ${index + 1}`} className="rounded-lg" />
-                                    </div>
-                                ))}
-                            </Carousel>
-                            <button
-                                type="button"
-                                className="bg-green-500 text-white font-semibold py-2 px-4 w-full mt-4 rounded hover:bg-green-600 transition duration-300"
-                                onClick={() => handleShow360Tour(warehouse.image360Url)}
-                            >
-                                Show 360 Tour
-                            </button>
-                            <h2 className="text-lg font-semibold mt-4">Other Warehouses You Might Like</h2>
-                            {userWarehouses && userWarehouses.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                {userWarehouses.map((warehouse, index) => (
-                    <div key={index} className="bg-white rounded-lg shadow-lg p-4">
-              <Carousel showThumbs={false} showArrows={true} infiniteLoop={true} autoPlay={true} interval={5000} transitionTime={500}>
-                        {warehouse.images.map((imageUrl, imageIndex) => (
-                            <div key={imageIndex}>
-                                <img src={imageUrl} alt={`Warehouse Image ${index + 1}`} className="rounded-lg" />
-                            </div>
-                        ))}
-                    </Carousel>
-                        <h3 className="text-xl font-semibold mb-2">{warehouse.name}</h3>
-                        <p className="text-x">Lessor: {uploaderInfo ? `${uploaderInfo.first_name} ${uploaderInfo.last_name}` : 'Unknown'}</p>
-                        <p className="text-gray-700">Price: ₱{warehouse.price}</p>
-      
-                        {/* You can add more details about the warehouse here */}
-                    </div>
-                ))}
+  <div className="container mx-auto px-4 py-8">
+    <div className="bg-white rounded-2xl shadow-xl p-8 md:flex space-y-8 md:space-y-0 md:space-x-8">
+      {/* Left Section with Carousel and Suggestions */}
+      <div className="md:w-1/2 space-y-6">
+        <Carousel showThumbs={false} showArrows={true} infiniteLoop={true} autoPlay={true} interval={5000} transitionTime={500}>
+          {warehouse.images.map((imageUrl, index) => (
+            <div key={index}>
+              <img src={imageUrl} alt={`Warehouse Image ${index + 1}`} className="rounded-xl object-cover" />
             </div>
+          ))}
+        </Carousel>
+
+        <button
+          type="button"
+          className="bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 w-full rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1"
+          onClick={() => handleShow360Tour(warehouse.image360Url)}
+        >
+          Show 360 Tour
+        </button>
+
+        <h2 className="text-xl font-semibold text-gray-800">Other Warehouses You Might Like</h2>
+        {userWarehouses && userWarehouses.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+            {userWarehouses.map((warehouse, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-lg p-4 space-y-2">
+                <Carousel showThumbs={false} showArrows={true} infiniteLoop={true} autoPlay={true} interval={5000} transitionTime={500}>
+                  {warehouse.images.map((imageUrl, imageIndex) => (
+                    <div key={imageIndex}>
+                      <img src={imageUrl} alt={`Warehouse Image ${index + 1}`} className="rounded-lg object-cover" />
+                    </div>
+                  ))}
+                </Carousel>
+                <h3 className="text-lg font-semibold text-gray-900">{warehouse.name}</h3>
+                <p className="text-gray-600">Lessor: {uploaderInfo ? `${uploaderInfo.first_name} ${uploaderInfo.last_name}` : 'Unknown'}</p>
+                <p className="text-gray-800 font-semibold">Price: ₱{warehouse.price}</p>
+              </div>
+            ))}
+          </div>
         )}
+      </div>
 
+      {/* Right Section with Details */}
+      <div className="md:w-1/2 md:pl-8 space-y-4">
+        <h1 className="text-3xl font-bold text-gray-900">{warehouse.name}</h1>
+        <div className="text-lg"><strong>Lessor:</strong> {uploaderInfo ? `${uploaderInfo.first_name} ${uploaderInfo.last_name}` : 'Unknown'}</div>
+        <div className="text-lg"><strong>Status:</strong> <span className="text-green-600 font-semibold">{warehouse.status}</span></div>
+        <div className="text-lg"><strong>Address:</strong> {warehouse.address}</div>
+        <div className="text-lg"><strong>Description:</strong> {warehouse.description}</div>
+        <div className="text-lg"><strong>Price:</strong> ₱{warehouse.price}</div>
+        <div className="text-lg"><strong>Created Date:</strong> {uploadDate ? new Date(uploadDate).toLocaleString() : 'Unknown'}</div>
 
+        {/* Amenities Section */}
+        <div className="text-lg font-semibold">Amenities:</div>
+        <div className="grid grid-cols-2 gap-4">
+          {warehouse.amenities.map((amenity, index) => (
+            <div key={index} className="flex items-center bg-gray-100 rounded-lg p-2 shadow-sm">
+              <img src={amenity.icon} alt={amenity.name} className="w-6 h-6 mr-2" />
+              <span className="text-gray-800">{amenity.name}</span>
+            </div>
+          ))}
+        </div>
 
-                        </div>
-                        <div className="md:w-1/2 md:pl-8 text-base card">
-                            <h1 className="text-3xl font-semibold mb-4">{warehouse.name}</h1>
-                            <div className="text-lg mb-4"><strong>Lessor:</strong> {uploaderInfo ? `${uploaderInfo.first_name} ${uploaderInfo.last_name}` : 'Unknown'}</div>
-                            <div className="text-lg mb-4"><strong>Status:</strong> <span className="text-green-500">{warehouse.status}</span></div>
-                            <div className="text-lg mb-4"><strong>Address:</strong> {warehouse.address}</div>
-                            <div className="text-lg mb-4"><strong>Description:</strong> {warehouse.description}</div>
-                            <div className="text-lg mb-4"><strong>Price:</strong> ₱{warehouse.price}</div>
-                            <div className="text-lg mb-4"><strong>Created Date:</strong> {uploadDate ? new Date(uploadDate).toLocaleString() : 'Unknown'}</div>
-
-                            <div className="text-lg mb-4"><strong>Amenities:</strong></div>
-                            <div className="grid grid-cols-3 gap-4 mb-4">
-                                {warehouse.amenities.map((amenity, index) => (
-                                    <div key={index} className="amenities-card">
-                                        <img src={amenity.icon} alt={amenity.name} className="w-6 h-6 mr-2" />
-                                        {amenity.name}
-                                    </div>
-                                ))}
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-    <button className="bg-blue-500 text-white font-semibold py-2 px-12 rounded hover:bg-blue-600 transition duration-300" style={{ flex: 1 }} onClick={handleRentButtonClick}>
-        Rent
-    </button>
- 
-         
-
-    <button 
-        className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 px-12 rounded shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1"
-        onClick={handleMessageButtonClick}
-    >
-        Message
-    </button>
-
-</div>
+        {/* Action Buttons */}
+        <div className="flex gap-4 mt-6">
+          <button
+            className="flex-1 bg-blue-500 text-white font-semibold py-3 rounded-lg hover:bg-blue-600 transition duration-300"
+            onClick={handleRentButtonClick}
+          >
+            Rent
+          </button>
+          <button
+            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1"
+            onClick={handleMessageButtonClick}
+          >
+            Message
+          </button>
+        </div>
+   
+    
 
 
 
@@ -403,58 +407,54 @@ const handleCloseModal = () => {
             
             {/* Owner notification modal */}
             <OwnerNotificationModal show={showOwnerNotificationModal} onClose={() => setShowOwnerNotificationModal(false)} />
-                   <div className="md:flex justify-between mt-8">
-    <div className="w-full md:w-3/4 lg:w-4/2 md:flex justify-center flex-col items-left">
-        <div className="text-lg mb-2"><strong>LOCATION:</strong> {warehouse.address}</div>
-        <div className="bg-gray-200 rounded-lg shadow-lg pr-4 pt-2 pb-2 pl-2" style={{ height: '500px' }}>
-            {mapLoaded && (
-                <MapContainer center={position} zoom={15} style={{ height: '100%', minHeight: '400px' }}>
-                    <TileLayer
-                        url="https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=aer2dxkMUVJORhqFpZiS"
-                    />
-                    <Marker position={position} draggable={true} icon={locationIcon} eventHandlers={{ dragend: handleMarkerMove }}>
-                        <Popup>{warehouse.address}</Popup>
-                    </Marker>
-                    <Circle center={position} radius={500} /> {/* Add a Circle with a radius of 500 meters */}
-                </MapContainer>
-            )}
-        </div>
+            <div className="flex flex-col md:flex-row justify-between mt-8 space-y-6 md:space-y-0 md:space-x-8">
+  <div className="w-full">
+    <div className="text-lg font-semibold mb-2 text-gray-800">
+      <strong>📍 LOCATION:</strong> {warehouse.address}
     </div>
+    <div
+      className="relative bg-white rounded-xl shadow-lg overflow-hidden"
+      style={{ height: '600px', width: '100%' }}
+    >
+      {mapLoaded && (
+        <MapContainer
+          center={position}
+          zoom={15}
+          style={{
+            height: '100%',
+            width: '100%',
+            borderRadius: 'inherit'
+          }}
+        >
+          <TileLayer
+            url="https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=aer2dxkMUVJORhqFpZiS"
+          />
+          <Marker
+            position={position}
+            draggable={true}
+            icon={locationIcon}
+            eventHandlers={{ dragend: handleMarkerMove }}
+          >
+            <Popup>{warehouse.address}</Popup>
+          </Marker>
+          <Circle center={position} radius={500} />
+        </MapContainer>
+      )}
+      {/* Subtle shadow for floating effect */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-100 opacity-30 pointer-events-none" />
+    </div>
+    </div>
+
+ 
+
+
+
+
             
-                    <div className="w-full md:w-1/4 lg:w-1/4 md:ml-4 mt-8 md:mt-0">
-                        <div className="bg-gray-300 rounded-lg shadow-lg p-4">
-                            <div className="flex items-center mb-4">
-                                {uploaderInfo && uploaderInfo.profileImage && (
-                                    <img src={uploaderInfo.profileImage} alt="Profile" className="h-12 w-12 rounded-full mr-4" />
-                                )}
-                                <div>
-                                    <div className="text-lg font-semibold">{uploaderInfo && `${uploaderInfo.first_name} ${uploaderInfo.last_name}`}</div>
-                                    <div className="text-gray-600">{uploaderInfo && uploaderInfo.status}</div>
-                                </div>
-                            </div>
-                            <form>
-                                <div className="mb-4">
-                                    <label htmlFor="firstName" className="block text-sm font-semibold mb-2">First Name</label>
-                                    <input type="text" id="firstName" name="firstName" className="w-full border-gray-300 rounded-md py-2 px-3" />
-                                </div>
-                                <div className="mb-4">
-                                    <label htmlFor="lastName" className="block text-sm font-semibold mb-2">Last Name</label>
-                                    <input type="text" id="lastName" name="lastName" className="w-full border-gray-300 rounded-md py-2 px-3" />
-                                </div>
-                                <div className="mb-4">
-                                    <label htmlFor="email" className="block text-sm font-semibold mb-2">Email</label>
-                                    <input type="email" id="email" name="email" className="w-full border-gray-300 rounded-md py-2 px-3" />
-                                </div>
-                                <div className="mb-4">
-                                    <label htmlFor="message" className="block text-sm font-semibold mb-2">Message</label>
-                                    <textarea id="message" name="message" rows="4" className="w-full border-gray-300 rounded-md py-2 px-3"></textarea>
-                                </div>
-                                <button type="submit" className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">Contact Owner</button>
-                            </form>
-                        </div>
-                    </div>
+                  
                 </div>
             </div>
+
            {/* Confirmation modal */}
            <ConfirmationModal show={showConfirmationModal} onClose={handleRentConfirmation} />
            {show360Modal && (

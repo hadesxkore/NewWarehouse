@@ -189,16 +189,9 @@ function SignUpPage() {
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
-          <div className="flex justify-center items-center mt-1"> 
-            <span className="text-gray-900 text-sm sm:text-bigger">or</span>
-          </div>
-          <div className="flex justify-center items-center mb-2"> 
-            <button className="bg-white border border-gray-300 text-gray-700 font-bold py-2 px-3 rounded-lg focus:outline-none focus:shadow-outline hover:bg-gray-200 mt-1 w-full" type="button" onClick={signInWithGoogle}>
-              <img src={googleIcon} alt="Google Icon" className="inline-block w-4 h-4 mr-2" />
-              Sign Up with Google
-            </button>
-          </div>
-          <p className="text-xs text-gray-700 mb-1 sm:mb-4">
+         
+          
+          <p className="text-xs text-gray-700 mt-4 sm:mb-4">
             By clicking "Create account" above, you acknowledge that you will receive updates from the WhereHouse team and that you have read, understood            By clicking "Create account" above, you acknowledge that you will receive updates from the WhereHouse team and that you have read, understood, and agreed to WhereHouse Library's Terms & Conditions, Licensing Agreement and Privacy Policy.
           </p>
           <hr className="line" />

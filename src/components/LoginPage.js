@@ -156,15 +156,7 @@ function LoginPage() {
                     >
                         {loading ? 'Logging in...' : 'Log in'}
                     </button>
-                    <p className="mt-1 text-center">or</p>
-                    <button 
-                        className="bg-white border border-gray-300 text-gray-700 font-bold py-2 px-3 rounded-lg focus:outline-none focus:shadow-outline hover:bg-gray-200 mt-1 w-full" 
-                        type="button" 
-                        onClick={handleLoginWithGoogle}
-                    >
-                        <img src={googleIcon} alt="Google Icon" className="inline-block w-4 h-4 mr-2" />
-                        Log in with Google
-                    </button>
+                  
                     <hr className="my-6 border-gray-400" style={{ width: '100%' }} />
                 </div>
                 <div className="flex justify-between items-center">

@@ -357,65 +357,72 @@ function RentalAgreements() {
 )}
 
 
-       {modalVisible && (
-                        <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-                            <div className="absolute inset-0 flex items-center justify-center z-60">
-                                <div className="relative bg-white rounded-lg shadow-md p-4 max-w-3xl max-h-full overflow-y-auto">
-                                    <button
-                                        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                                        onClick={() => setModalVisible(false)}
-                                    >
-                                        &times;
-                                    </button>
-                                    <h2 className="text-xl font-semibold mb-4 text-center">Rental Agreement</h2>
-                                    <div className="border-b border-gray-400 mb-4"></div>
-                                    <div className="flex justify-center mb-4">
-                                        <div className="border border-gray-400 rounded-full px-2 py-1 text-lg font-semibold">
-                                            {selectedAgreement?.warehouseName}
-                                        </div>
-                                    </div>
-                                    <div className="flex mb-4 justify-end">
-                                        <p className="font-semibold mr-4">Lessor Name:</p>
-                                        <p>{selectedAgreement?.lessorName}</p>
-                                    </div>
-                                    <div className="flex justify-end mb-4">
-                                        <p className="font-semibold mr-4">Lessee Name:</p>
-                                        <p>{selectedAgreement?.lesseeName}</p>
-                                    </div>
-                                    <div className="border-b border-gray-400 mb-4"></div>
-                                    <div className="flex justify-between mb-4">
-                                        <p className="font-semibold">Start Date:</p>
-                                        <p>{new Date(selectedAgreement?.start_date).toLocaleDateString()}</p>
-                                        <p className="font-semibold">End Date:</p>
-                                        <p>{new Date(selectedAgreement?.end_date).toLocaleDateString()}</p>
-                                        <p className="font-semibold">Amount:</p>
-                                        <p>₱{selectedAgreement?.rentAmount} ({selectedAgreement?.rentFrequency})</p>
-                                        <p className="font-semibold">Deposit:</p>
-                                        <p>₱{selectedAgreement?.depositAmount}</p>
-                                    </div>
-                                    <div className="border-b border-gray-400 mb-4"></div>
-                                    <div className="mb-4">
-                                        <p className="font-semibold mb-2">Terms:</p>
-                                        <div className="pl-4 text-justify">
-                                            <p style={{ textIndent: '3em' }}>{selectedAgreement?.terms}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex mt-20">
-                                        <div className="text-right">
-                                            <hr className="mt-1 mb-1 border-gray-400" />
-                                            <p>Lessee Signature</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex mt-10">
-                                        <div className="text-right">
-                                            <hr className="mt-1 mb-1 border-gray-400" />
-                                            <p>Lessor Signature</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+{modalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+        <div className="absolute inset-0 flex items-center justify-center z-60">
+            <div className="relative bg-white rounded-lg shadow-lg p-6 w-4/5 max-w-4xl max-h-full overflow-y-auto">
+                <button
+                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl"
+                    onClick={() => setModalVisible(false)}
+                >
+                    &times;
+                </button>
+                <h2 className="text-xl font-semibold mb-4 text-center">Rental Agreement</h2>
+                <div className="border-b border-gray-400 mb-4"></div>
+                <div className="flex justify-center mb-4">
+                    <div className="border border-gray-400 rounded-full px-4 py-2 text-lg font-semibold">
+                        {selectedAgreement?.warehouseName}
+                    </div>
+                </div>
+                <div className="flex mb-4 justify-between">
+                    <p className="font-semibold text-sm">Lessor Name:</p>
+                    <p className="text-sm">{selectedAgreement?.lessorName}</p>
+                </div>
+                <div className="flex mb-4 justify-between">
+                    <p className="font-semibold text-sm">Lessee Name:</p>
+                    <p className="text-sm">{selectedAgreement?.lesseeName}</p>
+                </div>
+                <div className="border-b border-gray-400 mb-4"></div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <p className="font-semibold text-sm">Start Date:</p>
+                        <p className="text-sm">{new Date(selectedAgreement?.start_date).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm">End Date:</p>
+                        <p className="text-sm">{new Date(selectedAgreement?.end_date).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm">Amount:</p>
+                        <p className="text-sm">₱{selectedAgreement?.rentAmount} ({selectedAgreement?.rentFrequency})</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-sm">Deposit:</p>
+                        <p className="text-sm">₱{selectedAgreement?.depositAmount}</p>
+                    </div>
+                </div>
+                <div className="border-b border-gray-400 mb-4"></div>
+                <div className="mb-4">
+                    <p className="font-semibold text-sm mb-2">Terms:</p>
+                    <div className="pl-4 text-justify">
+                        <p style={{ textIndent: '3em', fontSize: '0.875rem' }}>{selectedAgreement?.terms}</p>
+                    </div>
+                </div>
+                <div className="flex mt-10 justify-between">
+                    <div className="text-right">
+                        <hr className="mt-1 mb-1 border-gray-400" />
+                        <p className="text-sm">Lessee Signature</p>
+                    </div>
+                    <div className="text-right">
+                        <hr className="mt-1 mb-1 border-gray-400" />
+                        <p className="text-sm">Lessor Signature</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+
 
                     {successMessage && (
                         <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-lg shadow-md">

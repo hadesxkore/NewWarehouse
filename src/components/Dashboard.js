@@ -10,6 +10,7 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { HiOutlineX, HiCheck, HiMap , HiTrash } from 'react-icons/hi'; // Import the HiTrash icon
 
 
 
@@ -69,6 +70,8 @@ function Dashboard() {
     const [center, setCenter] = useState([51.505, -0.09]);
     const [mapKey, setMapKey] = useState(0); // Key for forcing remount of MapContainer
     const [showSuccessGif, setShowSuccessGif] = useState(false);
+    const [uploadedFiles, setUploadedFiles] = useState([]);
+    const [currentFile, setCurrentFile] = useState(''); // State to hold the current file name
 
     // Inside your component
 const [searchText, setSearchText] = useState('');
@@ -852,9 +855,9 @@ const handleCloseMap = () => {
 const handleUploadedWarehousesClick = () => {
     setCurrentView('uploaded'); // Set the current view to 'uploaded'
 };
-const handleAmenitySelection = (amenityName) => {
-    // Check if the amenity is already selected
-    const index = selectedAmenities.indexOf(amenityName);
+const handleAmenitySelection = (amenity) => {
+    // Check if the amenity is already selected by comparing names
+    const index = selectedAmenities.findIndex(item => item.name === amenity.name);
     if (index !== -1) {
         // If it's selected, remove it from the selected amenities array
         const updatedSelection = [...selectedAmenities];
@@ -862,10 +865,9 @@ const handleAmenitySelection = (amenityName) => {
         setSelectedAmenities(updatedSelection);
     } else {
         // If it's not selected, add it to the selected amenities array
-        setSelectedAmenities([...selectedAmenities, amenityName]);
+        setSelectedAmenities([...selectedAmenities, amenity]);
     }
 };
-
 
 
 const handleResubmit = async () => {
@@ -1103,22 +1105,31 @@ const handleFullscreen = () => {
     };
 
     
-     // Fetch rented warehouses from Firestore when component mounts
-     useEffect(() => {
-        handleRentalWarehousesClick();
-    }, []);
-   // Function to handle image upload
-   const handleImageUpload = async (e) => {
-    setUploading(true);
-    const file = e.target.files[0];
-    const storageRef = storage.ref();
-    const fileRef = storageRef.child(file.name);
-    await fileRef.put(file);
-    const url = await fileRef.getDownloadURL();
-    setWarehouseData((prevData) => ({ ...prevData, images: [...prevData.images, url] }));
-    setUploading(false);
-};
+     // Function to handle image upload
+     const handleImageUpload = async (e) => {
+        setUploading(true);
+        const file = e.target.files[0];
+        
+        if (file) {
+            const storageRef = storage.ref();
+            const fileRef = storageRef.child(file.name);
+            await fileRef.put(file);
+            const url = await fileRef.getDownloadURL();
+            setWarehouseData((prevData) => ({ ...prevData, images: [...prevData.images, url] }));
 
+            // Update uploadedFiles state with the new file name
+            setUploadedFiles((prevFiles) => [...prevFiles, file]); // Add the file object
+            
+            // Set the current file name
+            setCurrentFile(file.name);
+        }
+        
+        setUploading(false);
+    };
+{/* Function to handle file removal */}
+const handleFileRemove = (index) => {
+    setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+};
 
 
 
@@ -1306,6 +1317,7 @@ const transferToLeaseAgreement = async () => {
         }
     }
 };
+
 const confirmMarkAsRented = async () => {
     try {
         console.log('Warehouse ID in markAsRented:', selectedWarehouseId); // Debug log
@@ -1736,94 +1748,134 @@ return (
                         ></textarea>
                     </div>
                 </div>
- {/* Upload Images and Videos */}
+{/* Upload Images and Videos */}
 <div className="flex items-center justify-start mb-2">
     {/* Upload Images */}
     <div className="flex items-center mr-4">
         <label className="block text-sm font-medium mr-2">Upload Images</label>
         <label htmlFor="image-upload" className="upload-btn">Upload</label>
-        <input id="image-upload" type="file" onChange={handleImageUpload} accept="image/*" className="hidden" />
+        <input
+            id="image-upload"
+            type="file"
+            onChange={handleImageUpload}
+            accept="image/*"
+            className="hidden"
+        />
     </div>
+    
     {/* Upload Videos */}
-    <div className="flex items-center">
+    <div className="flex items-center mr-4">
         <label className="block text-sm font-medium mr-2">Upload Videos</label>
         <label htmlFor="video-upload" className="upload-btn">Upload</label>
-        <input id="video-upload" type="file" onChange={handleVideoUpload} accept="video/*" className="hidden" />
+        <input
+            id="video-upload"
+            type="file"
+            onChange={handleVideoUpload}
+            accept="video/*"
+            className="hidden"
+        />
     </div>
+    
     {uploading && <p className="text-sm text-gray-500 ml-4">Uploading...</p>}
+
+    {/* Display Uploaded Files Inline */}
+    <div className="flex items-center ml-4">
+        {uploadedFiles.map((file, index) => (
+            <div key={index} className="flex items-center mr-4 bg-white shadow-md rounded-lg p-2 transition-transform transform hover:scale-105">
+                <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                <span className="text-sm text-gray-800 flex-grow">{file.name}</span>
+                <button 
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                    onClick={() => handleFileRemove(index)}
+                    aria-label={`Remove ${file.name}`}
+                >
+                    <HiTrash className="w-5 h-5" />
+                </button>
+            </div>
+        ))}
+    </div>
 </div>
 
-                {/* Amenities */}
-                <div>
-                    <label className="block text-sm font-medium mb-1">Amenities</label>
-                    <div className="amenities-container flex flex-wrap">
-                        {amenitiesList.map((amenity, index) => (
-                            <label key={index} className="amenity-item flex items-center mr-2 mb-1">
-                                <input
-                                    type="checkbox"
-                                    name={amenity.name}
-                                    checked={selectedAmenities.some(item => item.name === amenity.name)}
-                                    onChange={() => handleAmenitySelection(amenity)}
-                                />
-                                <img src={amenity.icon} alt={amenity.name} className="w-5 h-5 ml-2" />
-                                {amenity.name}
-                            </label>
-                        ))}
-                    </div>
-                </div>
-              {/* File Uploads */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[
-                { id: "identificationProof", label: "Identification Proof/Valid ID" },
-                { id: "addressProof", label: "Address Proof" },
-                { id: "ownershipDocuments", label: "Ownership Documents" },
-                { id: "previousTenancyDetails", label: "Previous Tenancy Details (if applicable)" },
-                { id: "businessPermit", label: "Business Permit" },
-                { id: "buildingPermit", label: "Sanitary Permit" },
-                { id: "maintenanceRecords", label: "Maintenance Records" },
-            ].map((field) => (
-                <div key={field.id}>
-                    <label className="block text-sm font-medium mb-1" htmlFor={field.id}>{field.label}</label>
-                    <div className="relative border border-gray-300 rounded-lg overflow-hidden transition-shadow hover:shadow-lg">
-                        <input
-                            type="file"
-                            id={field.id}
-                            name={field.id}
-                            onChange={handleFileUpload}
-                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                            required={field.id !== "previousTenancyDetails" && field.id !== "businessRegistration" && field.id !== "insuranceDocuments" && field.id !== "maintenanceRecords"}
-                        />
-                        <div className="flex items-center justify-center h-10 bg-gray-100 hover:bg-blue-100 transition-colors">
-                            <span className="text-gray-700 hover:text-blue-700">{fileNames[field.id] || "Choose File"}</span>
-                        </div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1" id={`${field.id}-file-name`}>{fileNames[field.id]}</p>
-                </div>
-            ))}
+{/* Amenities */}
+<div>
+  <label className="block text-sm font-medium mb-1">Amenities</label>
+  <div className="amenities-container flex flex-wrap gap-3">
+    {amenitiesList.map((amenity, index) => (
+      <label key={index} className="amenity-item flex items-center cursor-pointer">
+        <input
+          type="checkbox"
+          name={amenity.name}
+          checked={selectedAmenities.some(item => item.name === amenity.name)}
+          onChange={() => handleAmenitySelection(amenity)}
+          className="form-checkbox h-5 w-5 text-blue-600 transition duration-150 ease-in-out"
+        />
+        <img src={amenity.icon} alt={amenity.name} className="w-5 h-5 ml-2" />
+        <span className="ml-2">{amenity.name}</span>
+      </label>
+    ))}
+  </div>
 </div>
+
+   {/* File Uploads */}
+<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    {[
+        { id: "identificationProof", label: "ID/Valid ID" },
+        { id: "addressProof", label: "Address Proof" },
+        { id: "ownershipDocuments", label: "Ownership Docs" },
+        { id: "previousTenancyDetails", label: "Previous Tenancy Details" },
+        { id: "businessPermit", label: "Business Permit" },
+        { id: "sanitaryPermit", label: "Sanitary Permit" },
+        { id: "maintenanceRecords", label: "Maintenance Records" },
+    ].map((field) => (
+        <div key={field.id} className="bg-white shadow rounded-md p-2 transition-transform transform hover:scale-105">
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor={field.id}>{field.label}</label>
+            <div className="relative border border-gray-300 rounded-md overflow-hidden transition-shadow hover:shadow-md">
+                <input
+                    type="file"
+                    id={field.id}
+                    name={field.id}
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    required={field.id !== "previousTenancyDetails" && field.id !== "businessPermit" && field.id !== "maintenanceRecords"}
+                />
+                <div className="flex items-center justify-center h-10 bg-blue-500 hover:bg-blue-600 transition-colors rounded-md cursor-pointer">
+                    <span className="text-white">{fileNames[field.id] || "Choose File"}</span>
+                </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{fileNames[field.id] ? `Uploaded: ${fileNames[field.id]}` : "No file uploaded"}</p>
+        </div>
+    ))}
+</div>
+
 
               {/* Buttons */}
-<div className="flex justify-end mt-4 space-x-2">
+
+              <div className="flex justify-end mt-4 space-x-2">
+              <button
+    type="button"
+    className="flex items-center px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 transition-colors" // Changed to blue for better visibility
+    onClick={handleShowMap}
+>
+    <HiMap className="mr-1 text-yellow-400" /> {/* Map icon with yellow color for contrast */}
+    Show Map
+</button>
+
     <button
         type="button"
-        className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+        className="flex items-center px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
         onClick={() => setShowUploadModal(false)}
     >
+        <HiOutlineX className="mr-1" /> {/* Cancel icon */}
         Cancel
     </button>
     <button
         type="submit"
-        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+        className="flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
     >
+        <HiCheck className="mr-1" /> {/* Submit icon */}
         Submit
     </button>
-    <button
-        type="button"
-        className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors"
-        onClick={handleShowMap}
-    >
-        Show Map
-    </button>
+    
 </div>
 
             </form>
@@ -2146,6 +2198,7 @@ return (
     <div className={`${showRentedWarehousesModal ? 'block' : 'hidden'}`}>
         <div className="container mx-auto px-4 mt-10">
             <h2 className="text-3xl font-bold mb-6 textUser">Your Rented Warehouses</h2>
+            
             {rentedWarehouses.length === 0 ? (
                 <div className="flex justify-center items-center mt-24">
                     <div className="bg-gray-300 rounded-lg p-6 shadow-md">
@@ -2220,6 +2273,7 @@ return (
                             >
                                 Document Status
                             </button>
+                            
                         </div>
                     ))}
                 </div>
@@ -2363,18 +2417,19 @@ return (
 
             {/* Button Container with Compact Design */}
             <div className="flex justify-between space-x-2">
-                <button
-                    className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-500 transition duration-300 w-full"
-                    onClick={handleResubmit}
-                >
-                    Resubmit
-                </button>
+              
 
                 <button
                     className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-500 transition duration-300 w-full"
                     onClick={() => setShowRejectionReasonModal(false)}
                 >
                     Close
+                </button>
+                <button
+                    className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-500 transition duration-300 w-full"
+                    onClick={handleResubmit}
+                >
+                    Resubmit
                 </button>
             </div>
         </div>
@@ -3138,18 +3193,19 @@ return (
                         </div>
                         <div className="p-6">
                             <p className="text-gray-800 mb-4">Are you sure you want to mark this warehouse as rented?</p>
-                            <div className="flex justify-end">
-                                <button
-                                    className="bg-green-600 text-white font-semibold py-2 px-4 rounded hover:bg-green-500 transition duration-300 mr-2 focus:outline-none"
-                                    onClick={confirmMarkAsRented}
-                                >
-                                    Confirm
-                                </button>
+                            <div className="flex justify-end space-x-2">
+                              
                                 <button
                                     className="bg-red-600 text-white font-semibold py-2 px-4 rounded hover:bg-red-500 transition duration-300 focus:outline-none"
                                     onClick={() => setShowConfirmationModal(false)}
                                 >
                                     Cancel
+                                </button>
+                                <button
+                                    className="bg-green-600 text-white font-semibold py-2 px-4 rounded hover:bg-green-500 transition duration-300 mr-2 focus:outline-none"
+                                    onClick={confirmMarkAsRented}
+                                >
+                                    Yes, Approve
                                 </button>
                             </div>
                         </div>

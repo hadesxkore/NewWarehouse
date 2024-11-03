@@ -34,7 +34,7 @@ const WarehouseCard = ({ warehouse }) => {
     }, [warehouse.description]);
 
     return (
-        <div className="warehouse-card bg-white p-6 rounded-lg shadow-md relative">
+        <div className="warehouse-card bg-white p-6 rounded-lg shadow-md relative mt-8">
             <div className="profile-image-container absolute -top-5 left-0 w-full flex justify-center -mt-8">
                 {uploaderInfo && uploaderInfo.profileImage && (
                     <img src={uploaderInfo.profileImage} alt="Profile" className="h-24 w-24 rounded-full border-4 border-white bg-white z-10" />
@@ -71,12 +71,10 @@ const WarehouseCard = ({ warehouse }) => {
                 </p>
           
                 
-                <div className="flex justify-between mt-4">
-                    <button className="bg-blue-500 text-white font-semibold py-3 px-6 rounded-md mr-4">
-                        Contact
-                    </button>
+                <div className="flex justify-end mt-4">
+                   
                     <Link to="/details" state={{ warehouse, uploaderInfo }}>
-                        <button className="bg-gray-500 text-white font-semibold py-3 px-6 rounded-md">View</button>
+                        <button className="bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-6 rounded-md">Rent</button>
                     </Link>
                 </div>
             </div>
