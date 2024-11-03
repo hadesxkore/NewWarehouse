@@ -43,9 +43,9 @@ const Conversation = () => {
                 const rentedWarehousesSnapshot = await rentedWarehousesRef.where('ownerUid', '==', ownerParticipantId).get();
                 
                 if (!rentedWarehousesSnapshot.empty) {
-                    setOwnerRole('Lessor');
-                } else {
                     setOwnerRole('Lessee');
+                } else {
+                    setOwnerRole('Lessor');
                 }
 
                 const ownerRef = firestore.collection('users').doc(ownerParticipantId);
