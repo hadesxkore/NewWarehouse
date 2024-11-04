@@ -10,7 +10,9 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload } from 'react-icons/hi'; // Import the HiTrash icon
+import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiEye, HiOutlineRefresh, HiX,
+    HiOutlineDocumentText, HiOutlineSave, HiOutlineBan
+ } from 'react-icons/hi'; // Import the HiTrash icon
 
 import { HiExclamationCircle  } from 'react-icons/hi';
 
@@ -587,6 +589,8 @@ const handleSaveDocumentStatus = async () => {
         const [submissionErrorMessage, setSubmissionErrorMessage] = useState('');        
         const [successMessage, setSuccessMessage] = useState('');
         const [newAddress, setNewAddress] = useState('');
+        // New state for restriction modal visibility
+const [restrictedResubmitModalVisible, setRestrictedResubmitModalVisible] = useState(false);
         // Function to handle warehouse data change
         const handleWarehouseDataChange = (e) => {
             const { name, value } = e.target;
@@ -1253,14 +1257,36 @@ const handleFileRemove = (index) => {
     });
     setUserDocuments(docs); // Set user documents
     setIsModalVisible(true); // Show the modal after fetching documents
+    setIsEditModalOpen(false);
 };
 
-const handleResubmitClick = (item) => {
+const handleResubmitClick = async (item) => {
     console.log("Document selected for resubmit:", item); // Debug log
+
     if (item) {
-        // Set the entire item for the selected document
-        setSelectedDoc(item); 
-        setResubmitModalVisible(true); // Show the resubmit modal
+        try {
+            // Check if the warehouse status is "Rented"
+            const docRef = firestore.collection('warehouses').doc(item.id);
+            const docSnapshot = await docRef.get();
+
+            if (docSnapshot.exists) {
+                const docData = docSnapshot.data();
+                
+                if (docData.status === 'verified') {
+                    // Show restriction modal if warehouse is rented
+                    setRestrictedResubmitModalVisible(true);
+                    return;
+                }
+
+                // If not rented, proceed with resubmit
+                setSelectedDoc(item); 
+                setResubmitModalVisible(true); // Show the resubmit modal
+            } else {
+                console.error("Document does not exist:", item.id);
+            }
+        } catch (error) {
+            console.error("Error checking document status:", error);
+        }
     } else {
         console.error("Document is undefined:", item);
     }
@@ -1292,6 +1318,7 @@ const uploadDocument = async () => {
         console.log("Selected Document ID:", selectedDoc.id); // Log the document ID
         
         setIsUploading(true); // Show loading modal
+        setResubmitModalVisible(false); // Close resubmit modal
 
         try {
             // Upload the file to Firebase Storage
@@ -1321,6 +1348,7 @@ const uploadDocument = async () => {
                 });
 
                 setSuccessModalVisible(true); // Show success modal
+                setIsModalVisible(false); // Show the modal after fetching documents
                 setResubmitModalVisible(false); // Close resubmit modal
                 setUploadedFile(null); // Clear the uploaded file
             } else {
@@ -2240,116 +2268,184 @@ return (
     </div>
 )}
 
-
-             {isEditModalOpen && currentWarehouse && (
-                <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
-                    <div className="relative bg-white p-6 rounded-lg shadow-md w-full max-w-2xl">
-                        <span className="absolute top-2 right-2 text-2xl cursor-pointer" onClick={handleCloseEditModal}>&times;</span>
-                        <h2 className="text-2xl font-bold mb-4">Edit Warehouse</h2>
-                        <form>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium mb-1">Name</label>
-                                <input
-                                    type="text"
-                                    value={currentWarehouse.name}
-                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium mb-1">Address</label>
-                                <input
-                                    type="text"
-                                    value={currentWarehouse.address}
-                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, address: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium mb-1">Description</label>
-                                <textarea
-                                    value={currentWarehouse.description}
-                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium mb-1">Price</label>
-                                <input
-                                    type="number"
-                                    value={currentWarehouse.price}
-                                    onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, price: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-4">
-                                <button type="button" className="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition duration-300" onClick={handleCloseEditModal}>Cancel</button>
-                                <button type="button" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300" onClick={handleSaveChanges}>Save</button>
-                           <button
-    type="button"
-    className="bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600 transition duration-300"
-    onClick={handleShowDocuments}
->
-    My Documents
-</button>
-
-                            </div>
-                        </form>
+{isEditModalOpen && currentWarehouse && (
+    <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-50">
+        <div className="relative bg-white p-8 rounded-lg shadow-lg w-full max-w-3xl">
+            {/* Close Icon */}
+            <HiX 
+                className="absolute top-4 right-4 text-2xl cursor-pointer text-gray-400 hover:text-gray-600"
+                onClick={handleCloseEditModal}
+            />
+            {/* Header */}
+            <div className="text-center mb-6">
+                <h2 className="text-3xl font-semibold text-gray-800">Edit Warehouse</h2>
+                <p className="text-gray-500 text-sm">Modify warehouse details below</p>
+            </div>
+            
+            {/* Form */}
+            <form>
+                {/* 2x2 Grid Layout for Input Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Name Field */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input
+                            type="text"
+                            value={currentWarehouse.name}
+                            onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, name: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200"
+                        />
+                    </div>
+                    
+                    {/* Address Field */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <input
+                            type="text"
+                            value={currentWarehouse.address}
+                            onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, address: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200"
+                        />
+                    </div>
+                    
+                    {/* Description Field */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea
+                            value={currentWarehouse.description}
+                            onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, description: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200"
+                            rows="3"
+                        />
+                    </div>
+                    
+                    {/* Price Field */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                        <input
+                            type="number"
+                            value={currentWarehouse.price}
+                            onChange={(e) => setCurrentWarehouse({ ...currentWarehouse, price: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200"
+                        />
                     </div>
                 </div>
-            )}
-    
-{isModalVisible && (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
-        <div className="bg-white rounded-lg shadow-lg p-4 w-10/12 md:w-1/2 lg:w-1/3">
-            <h2 className="text-2xl font-bold text-center mb-4">My Documents</h2>
-            <ul className="space-y-3">
-            {userDocuments.map((doc) => (
-    <div key={doc.id} className="flex flex-col border rounded-lg p-3 bg-gray-100 shadow-md w-full">
-        <h3 className="text-lg font-semibold mb-2">Warehouse: {doc.name}</h3>
-        <div className="space-y-1">
-            {[
-                { label: "Identification Proof", proof: doc.identificationProof },
-                { label: "Address Proof", proof: doc.addressProof },
-                { label: "Ownership Documents", proof: doc.ownershipDocuments },
-                { label: "Previous Tenancy Details", proof: doc.previousTenancyDetails },
-                { label: "Business Permit", proof: doc.businessPermit },
-                { label: "Sanitary Permit", proof: doc.sanitaryPermit },
-                { label: "Maintenance Records", proof: doc.maintenanceRecords }
-            ].map((item) => (
-                item.proof && (
-                    <div key={item.label} className="flex justify-between items-center border-b border-gray-300 py-2">
-                        <span className="text-gray-700 font-medium">{item.label}</span>
-                        <div className="flex items-center">
-                            <button
-                                className="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition duration-300 text-sm"
-                                onClick={() => handleViewDocument(item.proof)}
-                            >
-                                View
-                            </button>
-                            <button
-                                className="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-300 text-sm ml-2"
-                                onClick={() => handleResubmitClick({
-                                    id: doc.id,
-                                    label: item.label,
-                                    proof: item.proof // Pass the proof URL as well
-                                })}
-                            >
-                                Resubmit
-                            </button>
-                        </div>
-                    </div>
-                )
-            ))}
+
+                {/* Buttons */}
+                <div className="mt-8 flex justify-end space-x-3">
+                    {/* Cancel Button */}
+                    <button 
+                        type="button" 
+                        className="flex items-center bg-red-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-red-500 transition duration-300"
+                        onClick={handleCloseEditModal}
+                    >
+                        <HiOutlineBan className="mr-1" /> Cancel
+                    </button>
+
+                    {/* Save Button */}
+                    <button 
+                        type="button" 
+                        className="flex items-center bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-blue-500 transition duration-300"
+                        onClick={handleSaveChanges}
+                    >
+                        <HiOutlineSave className="mr-1" /> Save
+                    </button>
+
+                    {/* My Documents Button */}
+                    <button
+                        type="button"
+                        className="flex items-center bg-green-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-green-500 transition duration-300"
+                        onClick={handleShowDocuments}
+                    >
+                        <HiOutlineDocumentText className="mr-1" /> My Documents
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-))}
+)}
+    
 
+    {isModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-10/12 md:w-1/2 lg:w-1/3">
+            <div className="flex items-center justify-center mb-6">
+                <HiDocumentText className="text-blue-600 text-3xl mr-2" />
+                <h2 className="text-2xl font-bold text-center text-gray-800">My Documents</h2>
+            </div>
+            <ul className="space-y-4">
+                {userDocuments.map((doc) => (
+                    <div key={doc.id} className="flex flex-col border rounded-lg p-4 bg-gray-50 shadow-sm w-full">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Warehouse: {doc.name}</h3>
+                        <div className="space-y-2">
+                            {[
+                                { label: "Identification Proof", proof: doc.identificationProof },
+                                { label: "Address Proof", proof: doc.addressProof },
+                                { label: "Ownership Documents", proof: doc.ownershipDocuments },
+                                { label: "Previous Tenancy Details", proof: doc.previousTenancyDetails },
+                                { label: "Business Permit", proof: doc.businessPermit },
+                                { label: "Sanitary Permit", proof: doc.sanitaryPermit },
+                                { label: "Maintenance Records", proof: doc.maintenanceRecords }
+                            ].map((item) => (
+                                item.proof && (
+                                    <div key={item.label} className="flex justify-between items-center border-b border-gray-300 py-2">
+                                        <div className="flex items-center">
+                                            <HiDocumentText className="text-gray-500 text-lg mr-2" />
+                                            <span className="text-gray-700 font-medium">{item.label}</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button
+                                                className="flex items-center bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition duration-300 text-sm"
+                                                onClick={() => handleViewDocument(item.proof)}
+                                            >
+                                                <HiEye className="mr-1" /> View
+                                            </button>
+                                            <button
+                                                className="flex items-center bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-300 text-sm ml-2"
+                                                onClick={() => handleResubmitClick({
+                                                    id: doc.id,
+                                                    label: item.label,
+                                                    proof: item.proof // Pass the proof URL as well
+                                                })}
+                                            >
+                                                <HiOutlineRefresh className="mr-1" /> Resubmit
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </ul>
-            <div className="mt-4">
+            <div className="mt-6">
                 <button
-                    className="w-full bg-red-600 text-white font-semibold py-2 rounded hover:bg-red-700 transition duration-300"
+                    className="flex items-center justify-center w-full bg-red-600 text-white font-semibold py-2 rounded hover:bg-red-700 transition duration-300"
                     onClick={handleCloseModal}
+                >
+                    <HiX className="mr-2" /> Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+ 
+
+ 
+ {restrictedResubmitModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-10/12 md:w-1/2 lg:w-1/3 text-center">
+            <div className="flex flex-col items-center">
+                <HiExclamationCircle className="text-red-600 text-6xl mb-3" />
+                <h2 className="text-2xl font-bold text-red-600">Action Not Allowed</h2>
+            </div>
+            <p className="text-gray-800 mt-4">
+                This warehouse has already been validated by the admin and marked as <strong>"Verified"</strong>. Document resubmission is no longer permitted.
+            </p>
+            <div className="mt-6">
+                <button
+                    className="bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 transition duration-300 focus:outline-none"
+                    onClick={() => setRestrictedResubmitModalVisible(false)}
                 >
                     Close
                 </button>
@@ -2357,7 +2453,6 @@ return (
         </div>
     </div>
 )}
- 
  {isResubmitModalVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
         <div className="bg-white rounded-lg shadow-lg p-8 w-11/12 md:w-96">
