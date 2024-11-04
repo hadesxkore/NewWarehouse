@@ -14,7 +14,7 @@ import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocume
     HiOutlineDocumentText, HiOutlineSave, HiOutlineBan
  } from 'react-icons/hi'; // Import the HiTrash icon
 
-import { HiExclamationCircle  } from 'react-icons/hi';
+import { HiExclamationCircle, HiInformationCircle   } from 'react-icons/hi';
 
 
 import error1 from '../images/error1.png';
@@ -93,9 +93,12 @@ const currentDate = new Date().toLocaleDateString('en-US', {
 });
   // Define state for handling the documents modal and selected documents
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  
   const [selectedWarehouseDocuments, setSelectedWarehouseDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(null); // New state to track selected document
-
+  const [showApprovalConfirmationModal, setShowApprovalConfirmationModal] = useState(false);
+  const [documentToApproveIndex, setDocumentToApproveIndex] = useState(null); // To keep track of which document is being approved
+  
 const [show360ImageModal, setShow360ImageModal] = useState(false);
 const [current360ImageUrl, setCurrent360ImageUrl] = useState('');
 const [isValidUrl, setIsValidUrl] = useState(true);
@@ -106,11 +109,14 @@ const [newStatus, setNewStatus] = useState(null); // To store the new status
     const [showRentalWarehousesModal, setShowRentalWarehousesModal] = useState(false);
   // State for managing confirmation modal visibility
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  
   // State for storing the warehouse ID to be rented
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showRejectModal2, setShowRejectModal2] = useState(false);
 const [rejectReason, setRejectReason] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(null);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+
   const [showLeaseModal, setShowLeaseModal] = useState(false);
 const [selectedWarehouse, setSelectedWarehouse] = useState(null);
 const [formData, setFormData] = useState({
@@ -278,50 +284,56 @@ const openSubmitDocumentsModal = async (warehouse) => {
   
   const handleDocumentSubmit = async (e) => {
     e.preventDefault();
-    
+  
     if (selectedWarehouse) {
       setIsLoading(true); // Show loading state
       setUploadProgress(0); // Reset upload progress
+      setSubmissionSuccessModalVisible(false); // Reset success modal
   
       try {
         const documentUrls = {};
         const uploadTasks = [];
   
+        // Iterate over each document to upload
         for (const [key, file] of Object.entries(documents)) {
           if (file) {
             const storageRef = storage.ref(`documents/${selectedWarehouse.warehouseId}/${key}/${file.name}`);
-            
             const uploadTask = storageRef.put(file);
-            
-            uploadTask.on('state_changed', 
-              (snapshot) => {
-                // Calculate and update upload progress
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(progress);
-              },
-              (error) => {
-                // Handle errors
-                console.error('Upload error: ', error);
-                alert('Failed to upload some documents. Please try again.');
-              },
-              async () => {
-                // Get the file URL and save it
-                const fileUrl = await uploadTask.snapshot.ref.getDownloadURL();
-                documentUrls[key] = fileUrl;
-              }
-            );
   
-            uploadTasks.push(uploadTask);
+            // Using a promise to handle each upload
+            const uploadPromise = new Promise((resolve, reject) => {
+              uploadTask.on(
+                'state_changed',
+                (snapshot) => {
+                  // Calculate and update upload progress
+                  const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                  setUploadProgress(progress);
+                },
+                (error) => {
+                  // Reject the promise on error
+                  console.error('Upload error: ', error);
+                  reject(new Error('Failed to upload some documents.'));
+                },
+                async () => {
+                  // Get the file URL and save it
+                  const fileUrl = await uploadTask.snapshot.ref.getDownloadURL();
+                  documentUrls[key] = fileUrl;
+                  resolve(); // Resolve the promise
+                }
+              );
+            });
+  
+            uploadTasks.push(uploadPromise);
           }
         }
   
-        // Wait for all upload tasks to complete
+        // Wait for all upload promises to complete
         await Promise.all(uploadTasks);
   
-        // Update Firestore with document URLs
+        // Update Firestore with document URLs only if all uploads are successful
         const warehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId);
         await warehouseRef.update({ documents: documentUrls });
-    
+  
         setSubmissionSuccessModalVisible(true); // Show success modal
       } catch (error) {
         console.error('Error submitting documents: ', error);
@@ -331,6 +343,7 @@ const openSubmitDocumentsModal = async (warehouse) => {
       }
     }
   };
+  
   
   const handleViewDocuments = async (warehouse) => {
     console.log("Warehouse Object:", warehouse);
@@ -1426,10 +1439,34 @@ const markAsRented = async (warehouseId) => {
     }
 };
 
-const handleLeaseAgreement = (warehouse) => {
+const handleLeaseAgreement = async (warehouse) => {
     setSelectedWarehouse(warehouse);
-    setShowLeaseModal(true);
-    handleLeaseAgreementCheck(warehouse.warehouseId);
+    
+    // Fetch the latest data from Firestore to check document statuses
+    const warehouseData = await firestore.collection('rentedWarehouses').doc(warehouse.warehouseId).get();
+    const data = warehouseData.data();
+    
+    // Check for rejected documents
+    const rejectedDocuments = [
+        data.documents?.taxidentificationnumberStatus,
+        data.documents?.birregistrationStatus,
+        data.documents?.barangayclearanceStatus,
+        data.documents?.letterofintentStatus,
+        data.documents?.financialcapabilityproofStatus,
+        data.documents?.governmentissuedidStatus,
+    ].filter(status => status === 'rejected');
+
+    if (rejectedDocuments.length > 0) {
+        // Show validation modal if there are rejected documents
+        setShowValidationModal(true);
+    } else {
+        // Proceed to show the lease modal
+        setShowLeaseModal(true);
+    }
+};
+
+const handleCloseValidationModal = () => {
+    setShowValidationModal(false);
 };
 
 const handleLeaseAgreementCheck = async (warehouseId) => {
@@ -3265,7 +3302,23 @@ return (
             )}
         </div>
 
-       
+   {/* Validation Modal */}
+   {showValidationModal && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm text-center">
+                        <HiExclamationCircle className="text-7xl text-blue-500 mx-auto" />
+                        <h2 className="text-lg font-semibold mt-4">Validation Required</h2>
+                        <p className="mt-2">You need to validate the rejected documents before proceeding with the lease agreement.</p>
+                        <button
+                            className="mt-4 bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600"
+                            onClick={handleCloseValidationModal}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
+
         {showDocumentsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full relative">
@@ -3317,17 +3370,21 @@ return (
         </div>
     ) : (
         <div className="flex items-center space-x-2 w-full">
-            <label className="flex items-center text-sm">
-                <input
-                    type="radio"
-                    name={`status-${index}`}
-                    value="approved"
-                    checked={document.status === 'approved'}
-                    onChange={() => handleDocumentStatusChange(index, 'approved')}
-                    className="form-radio h-4 w-4 text-green-600 accent-green-600"
-                />
-                <span className="ml-1 text-green-600">Approve</span>
-            </label>
+          <label className="flex items-center text-sm">
+    <input
+        type="radio"
+        name={`status-${index}`}
+        value="approved"
+        checked={document.status === 'approved'}
+        onChange={() => {
+            setDocumentToApproveIndex(index); // Set the document index to approve
+            setShowApprovalConfirmationModal(true); // Show the confirmation modal
+        }}
+        className="form-radio h-4 w-4 text-green-600 accent-green-600"
+    />
+    <span className="ml-1 text-green-600">Approve</span>
+</label>
+
             <label className="flex items-center text-sm">
                 <input
                     type="radio"
@@ -3360,6 +3417,32 @@ return (
                 </div>
             </div>
         )}
+    </div>
+)}
+
+{showApprovalConfirmationModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full relative">
+            <h3 className="text-xl font-bold mb-4">Confirm Approval</h3>
+            <p>Are you sure you want to approve this document?</p>
+            <div className="flex justify-end mt-6 space-x-4">
+                <button
+                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500"
+                    onClick={() => setShowApprovalConfirmationModal(false)} // Close the modal without action
+                >
+                    Cancel
+                </button>
+                <button
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+                    onClick={() => {
+                        handleDocumentStatusChange(documentToApproveIndex, 'approved'); // Approve the document
+                        setShowApprovalConfirmationModal(false); // Close the modal
+                    }}
+                >
+                    Confirm
+                </button>
+            </div>
+        </div>
     </div>
 )}
 
