@@ -534,23 +534,8 @@ const handleProfileImageChange = (e) => {
             </div>
             
         </motion.div>
-                   {/* Your Documents Card */}
-                   <div className="w-full md:w-3/3 mt-8">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.1}}
-                >
-                    <div className="bg-white rounded-lg shadow-lg p-6">
-                        <h2 className="text-xl font-bold text-center mb-4">Your Documents</h2>
-                        <div className="flex justify-center">
-                            <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" onClick={handleDocumentsButtonClick}>
-                                Documents
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-            </div>     
+                 
+               
             </div>
            {/* Modal for Document Verification and Document Viewing */}
 {isModalOpen && (
