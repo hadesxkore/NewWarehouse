@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { firestore } from '../firebase'; // Import your Firebase configuration
 import Navigation from './Navigation';
 import './Superadmin.css';
+import { HiCalendar, HiArrowUp, HiArrowDown } from "react-icons/hi";
 import error1 from '../images/error1.png';
 import success from '../images/Success.gif'
 function Superadmin() {
@@ -164,26 +165,30 @@ const openConfirmModal = (warehouseId) => {
     const closeSuccessModal = () => {
         setIsSuccessModalOpen(false);
     };
-    // Function to handle opening the modal and setting selected files
-    const handleViewFiles = (warehouseId) => {
-        const warehouse = uploadedWarehouses.find(wh => wh.id === warehouseId);
-        if (warehouse) {
-            setSelectedFiles([
-                { label: "Identification Proof/Valid ID", url: warehouse.identificationProof },
-                { label: "Address Proof", url: warehouse.addressProof },
-                { label: "Ownership Documents", url: warehouse.ownershipDocuments },
-                { label: "Previous Tenancy Details (if applicable)", url: warehouse.previousTenancyDetails },
-                { label: "Business Permit", url: warehouse.businessPermit },
-                { label: "Building Permit", url: warehouse.buildingPermit },
-                { label: "Maintenance Records", url: warehouse.maintenanceRecords }
-                // Add more fields as needed
-            ]);
-            setSelectedWarehouse(warehouse);
-            setIsModalOpen(true);
-        } else {
-            console.error('Warehouse not found');
-        }
-    };
+  // Function to handle opening the modal and setting selected files
+const handleViewFiles = (warehouseId) => {
+    const warehouse = uploadedWarehouses.find(wh => wh.id === warehouseId);
+    if (warehouse) {
+        // Filter out any null or undefined URLs
+        const availableFiles = [
+            { label: "Identification Proof/Valid ID", url: warehouse.identificationProof },
+            { label: "Address Proof", url: warehouse.addressProof },
+            { label: "Ownership Documents", url: warehouse.ownershipDocuments },
+            { label: "Previous Tenancy Details (if applicable)", url: warehouse.previousTenancyDetails },
+            { label: "Business Permit", url: warehouse.businessPermit },
+            { label: "Sanitary Permit", url: warehouse.sanitaryPermit },
+            { label: "Maintenance Records", url: warehouse.maintenanceRecords }
+            // Add more fields as needed
+        ].filter(file => file.url); // Only keep files with valid URLs
+
+        setSelectedFiles(availableFiles);
+        setSelectedWarehouse(warehouse);
+        setIsModalOpen(true);
+    } else {
+        console.error('Warehouse not found');
+    }
+};
+
 
     // Function to close the modal
     const closeModal = () => {
@@ -213,20 +218,39 @@ const openConfirmModal = (warehouseId) => {
 
             <div className="superadmin-container">
             <div className="container mx-auto px-8 py-10 border border-gray-600 rounded-lg mt-8">
-                {/* Sorting Dropdown */}
-                <div className="flex justify-end mb-4">
-                    <select
-                        value={sortOption}
-                        onChange={(e) => setSortOption(e.target.value)}
-                        className="border rounded p-2"
-                    >
-                        <option value="">Sort By</option>
-                        <option value="uploadDateAsc">Upload Date: Past</option>
-                        <option value="uploadDateDesc">Upload Date: Latest</option>
-                        <option value="priceLowToHigh">Price: Low to High</option>
-                        <option value="priceHighToLow">Price: High to Low</option>
-                    </select>
-                </div>
+               {/* Sorting Dropdown */}
+<div className="flex justify-end mb-4 relative">
+    <div className="border rounded p-2 flex items-center space-x-2 bg-white">
+        <HiCalendar className="text-gray-500 mr-2" />
+        <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
+            className="appearance-none bg-transparent border-none focus:outline-none cursor-pointer"
+        >
+            <option value="">Sort By</option>
+            <option value="uploadDateAsc">
+                Upload Date: Past
+            </option>
+            <option value="uploadDateDesc">
+                Upload Date: Latest
+            </option>
+            <option value="priceLowToHigh">
+                Price: Low to High
+            </option>
+            <option value="priceHighToLow">
+                Price: High to Low
+            </option>
+        </select>
+    </div>
+</div>
+
+{/* Display icons beside dropdown for a similar effect */}
+<div className="absolute top-12 right-0 flex flex-col space-y-2 mt-2 text-gray-600">
+    {sortOption === "uploadDateAsc" && <HiCalendar />}
+    {sortOption === "uploadDateDesc" && <HiCalendar />}
+    {sortOption === "priceLowToHigh" && <HiArrowDown />}
+    {sortOption === "priceHighToLow" && <HiArrowUp />}
+</div>
                 {/* Filter Buttons */}
                 <div className="flex justify-center mt-4 space-x-2">
                     <button onClick={() => setFilterStatus('')} className={`filter-btn ${filterStatus === '' && 'active'}`}>All</button>

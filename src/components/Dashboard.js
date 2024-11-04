@@ -10,8 +10,9 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineX, HiCheck, HiMap , HiTrash } from 'react-icons/hi'; // Import the HiTrash icon
+import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload } from 'react-icons/hi'; // Import the HiTrash icon
 
+import { HiExclamationCircle  } from 'react-icons/hi';
 
 
 import error1 from '../images/error1.png';
@@ -72,7 +73,8 @@ function Dashboard() {
     const [showSuccessGif, setShowSuccessGif] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [currentFile, setCurrentFile] = useState(''); // State to hold the current file name
-
+    const [userDocuments, setUserDocuments] = useState([]); // Renamed variable
+    const [isModalVisible, setIsModalVisible] = useState(false); // Renamed variable
     // Inside your component
 const [searchText, setSearchText] = useState('');
 const [suggestions, setSuggestions] = useState([]);
@@ -157,6 +159,11 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
     const [progressPercentage, setProgressPercentage] = useState(0);
     const [successNotificationVisible, setSuccessNotificationVisible] = useState(false);
     const [documentType, setDocumentType] = useState(''); // State to hold the current document type
+// State for the Resubmit modal
+const [isResubmitModalVisible, setResubmitModalVisible] = useState(false);
+const [selectedDoc, setSelectedDoc] = useState(null); // To keep track of the document being resubmitted
+const [uploadedFile, setUploadedFile] = useState(null); // Changed from newFile to uploadedFile
+const [successModalVisible, setSuccessModalVisible] = useState(false); // For success popup
 
     const [tooltipVisibleIndex, setTooltipVisibleIndex] = useState(null); // State to track the hovered document
     const [selectedFile, setSelectedFile] = useState(null);
@@ -165,6 +172,7 @@ const [warehouseToDelete, setWarehouseToDelete] = useState(null);
 
     // Add these state variables and handlers to your Dashboard component
     const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
  
 const [documents, setDocuments] = useState({
@@ -201,7 +209,7 @@ const [documents, setDocuments] = useState({
         ownershipDocuments: null,
         previousTenancyDetails: null,
         businessPermit: null,
-        buildingPermit: null,
+        sanitaryPermit: null,
         maintenanceRecords: null,
     });
     
@@ -575,7 +583,8 @@ const handleSaveDocumentStatus = async () => {
         const [isSubmissionSuccessModalVisible, setSubmissionSuccessModalVisible] = useState(false);
         const [isLoading, setIsLoading] = useState(false);
         const [showRejectionReasonModal, setShowRejectionReasonModal] = useState(false);
-
+        const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
+        const [submissionErrorMessage, setSubmissionErrorMessage] = useState('');        
         const [successMessage, setSuccessMessage] = useState('');
         const [newAddress, setNewAddress] = useState('');
         // Function to handle warehouse data change
@@ -1102,6 +1111,8 @@ const handleFullscreen = () => {
     const handleCloseModal = () => {
         setShowModal(false);
         setModalImageUrl('');
+        setIsModalVisible(false); // Close the modal
+
     };
 
     
@@ -1164,8 +1175,36 @@ const handleFileRemove = (index) => {
     
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setUploading(true);
+        
+        // Validation checks
+        if (warehouseData.images.length < 3) {
+            setSubmissionErrorMessage("Please upload at least 3 images.");
+            setIsErrorModalVisible(true);
+            return;
+        }
+        if (selectedAmenities.length === 0) {
+            setSubmissionErrorMessage("Please select at least one amenity.");
+            setIsErrorModalVisible(true);
+            return;
+        }
+        const requiredDocuments = [
+            warehouseData.identificationProof,
+            warehouseData.addressProof,
+            warehouseData.ownershipDocuments,
+            warehouseData.previousTenancyDetails,
+            warehouseData.businessPermit,
+            warehouseData.sanitaryPermit,
+            warehouseData.maintenanceRecords
+        ];
+        const uploadedDocuments = requiredDocuments.filter(doc => doc !== '');
+        if (uploadedDocuments.length < 7) {
+            setSubmissionErrorMessage("Please upload all required documents (7 files).");
+            setIsErrorModalVisible(true);
+            return;
+        }
     
+        // Proceed with submission if validations pass
+        setUploading(true);
         try {
             const warehouseRef = firestore.collection('warehouses').doc();
             await warehouseRef.set({
@@ -1175,7 +1214,7 @@ const handleFileRemove = (index) => {
                 userUid: auth.currentUser.uid, // Set the userUid field
                 status: 'pending',
             });
-    
+            
             setSuccessMessage('Warehouse uploaded successfully!');
             setShowUploadModal(false);
             setWarehouseData({
@@ -1192,7 +1231,7 @@ const handleFileRemove = (index) => {
                 ownershipDocuments: '',
                 previousTenancyDetails: '',
                 businessPermit: '',
-                buildingPermit: '',
+                sanitaryPermit: '',
                 maintenanceRecords: '',
             });
             setSelectedAmenities([]);
@@ -1202,6 +1241,105 @@ const handleFileRemove = (index) => {
             setUploading(false);
         }
     };
+
+   const handleShowDocuments = async () => {
+    const userId = auth.currentUser.uid; // Get the current user's ID
+    const warehousesRef = firestore.collection('warehouses');
+    const querySnapshot = await warehousesRef.where('userUid', '==', userId).get();
+    
+    const docs = querySnapshot.docs.map(doc => {
+        console.log("Fetched document:", { id: doc.id, ...doc.data() }); // Log fetched documents
+        return { id: doc.id, ...doc.data() };
+    });
+    setUserDocuments(docs); // Set user documents
+    setIsModalVisible(true); // Show the modal after fetching documents
+};
+
+const handleResubmitClick = (item) => {
+    console.log("Document selected for resubmit:", item); // Debug log
+    if (item) {
+        // Set the entire item for the selected document
+        setSelectedDoc(item); 
+        setResubmitModalVisible(true); // Show the resubmit modal
+    } else {
+        console.error("Document is undefined:", item);
+    }
+};
+
+const handleFileUploadChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        setUploadedFile(file); // Set the new file to upload
+    }
+};
+// Mapping function to convert input labels to Firestore field names
+const mapFieldName = (label) => {
+    const fieldMappings = {
+        "Identification Proof": "identificationProof",
+        "Address Proof": "addressProof",
+        "Ownership Documents": "ownershipDocuments",
+        "Previous Tenancy Details": "previousTenancyDetails",
+        "Business Permit": "businessPermit",
+        "Sanitary Permit": "sanitaryPermit",
+        "Maintenance Records": "maintenanceRecords"
+    };
+
+    return fieldMappings[label] || null; // Return the mapped field name or null if not found
+};
+const uploadDocument = async () => {
+    console.log("Attempting to upload document:", selectedDoc); // Debug log
+    if (uploadedFile && selectedDoc) {
+        console.log("Selected Document ID:", selectedDoc.id); // Log the document ID
+        
+        setIsUploading(true); // Show loading modal
+
+        try {
+            // Upload the file to Firebase Storage
+            const storageRef = storage.ref(`documents/${uploadedFile.name}`);
+            await storageRef.put(uploadedFile);
+
+            // Get the download URL for the uploaded file
+            const newFileUrl = await storageRef.getDownloadURL();
+
+            // Get the document reference
+            const docRef = firestore.collection('warehouses').doc(selectedDoc.id);
+            const docSnapshot = await docRef.get();
+
+            // Check if the document exists
+            if (!docSnapshot.exists) {
+                console.error("Document does not exist:", selectedDoc.id);
+                return;
+            }
+
+            // Use the mapping function to get the correct field name
+            const fieldName = mapFieldName(selectedDoc.label);
+            
+            // If the field name is valid, update the document
+            if (fieldName) {
+                await docRef.update({
+                    [fieldName]: newFileUrl // Update using the correct field name casing
+                });
+
+                setSuccessModalVisible(true); // Show success modal
+                setResubmitModalVisible(false); // Close resubmit modal
+                setUploadedFile(null); // Clear the uploaded file
+            } else {
+                console.error("Invalid field name for label:", selectedDoc.label);
+            }
+        } catch (error) {
+            console.error("Error uploading document:", error);
+        } finally {
+            setIsUploading(false); // Hide loading modal
+        }
+    } else {
+        console.warn("No uploaded file or selected document:", uploadedFile, selectedDoc);
+    }
+};
+
+
+const handleViewDocument = (fileUrl) => {
+    window.open(fileUrl, '_blank'); // Open the uploaded file in a new tab
+};
     
      // Function to fetch rented warehouses
      const fetchRentedWarehouses = async () => {
@@ -1763,23 +1901,9 @@ return (
         />
     </div>
     
-    {/* Upload Videos */}
-    <div className="flex items-center mr-4">
-        <label className="block text-sm font-medium mr-2">Upload Videos</label>
-        <label htmlFor="video-upload" className="upload-btn">Upload</label>
-        <input
-            id="video-upload"
-            type="file"
-            onChange={handleVideoUpload}
-            accept="video/*"
-            className="hidden"
-        />
-    </div>
-    
-    {uploading && <p className="text-sm text-gray-500 ml-4">Uploading...</p>}
 
-    {/* Display Uploaded Files Inline */}
-    <div className="flex items-center ml-4">
+     {/* Display Uploaded Files Inline */}
+     <div className="flex items-center ml-4">
         {uploadedFiles.map((file, index) => (
             <div key={index} className="flex items-center mr-4 bg-white shadow-md rounded-lg p-2 transition-transform transform hover:scale-105">
                 <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
@@ -1793,6 +1917,21 @@ return (
                 </button>
             </div>
         ))}
+    {/* Upload Videos */}
+    <div className="flex items-center mr-4">
+        <label className="block text-sm font-medium mr-2">Upload Videos</label>
+        <label htmlFor="video-upload" className="upload-btn">Upload</label>
+        <input
+            id="video-upload"
+            type="file"
+            onChange={handleVideoUpload}
+            accept="video/*"
+            className="hidden"
+        />
+    </div>
+    {uploading && <p className="text-sm text-gray-500 ml-4">Uploading...</p>}
+  
+   
     </div>
 </div>
 
@@ -1883,7 +2022,28 @@ return (
     </div>
 )}
 
-
+{isErrorModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-50">
+        <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+            {/* Header with Error Icon and Title */}
+            <div className="flex items-center justify-center bg-red-600 rounded-t-lg p-4">
+                <HiExclamationCircle className="text-white text-4xl mr-2" aria-label="Error Icon" />
+                <h2 className="text-xl font-semibold text-white">Error</h2>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 text-center">
+                <p className="text-gray-700 text-lg mb-4">{submissionErrorMessage}</p>
+                <button
+                    onClick={() => setIsErrorModalVisible(false)}
+                    className="mt-4 w-1/2 mx-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
 
 
     {showMapModal && (
@@ -2125,11 +2285,144 @@ return (
                             <div className="flex justify-end space-x-4">
                                 <button type="button" className="bg-gray-500 text-white font-semibold py-2 px-4 rounded hover:bg-gray-600 transition duration-300" onClick={handleCloseEditModal}>Cancel</button>
                                 <button type="button" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300" onClick={handleSaveChanges}>Save</button>
+                           <button
+    type="button"
+    className="bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600 transition duration-300"
+    onClick={handleShowDocuments}
+>
+    My Documents
+</button>
+
                             </div>
                         </form>
                     </div>
                 </div>
             )}
+    
+{isModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-lg p-4 w-10/12 md:w-1/2 lg:w-1/3">
+            <h2 className="text-2xl font-bold text-center mb-4">My Documents</h2>
+            <ul className="space-y-3">
+            {userDocuments.map((doc) => (
+    <div key={doc.id} className="flex flex-col border rounded-lg p-3 bg-gray-100 shadow-md w-full">
+        <h3 className="text-lg font-semibold mb-2">Warehouse: {doc.name}</h3>
+        <div className="space-y-1">
+            {[
+                { label: "Identification Proof", proof: doc.identificationProof },
+                { label: "Address Proof", proof: doc.addressProof },
+                { label: "Ownership Documents", proof: doc.ownershipDocuments },
+                { label: "Previous Tenancy Details", proof: doc.previousTenancyDetails },
+                { label: "Business Permit", proof: doc.businessPermit },
+                { label: "Sanitary Permit", proof: doc.sanitaryPermit },
+                { label: "Maintenance Records", proof: doc.maintenanceRecords }
+            ].map((item) => (
+                item.proof && (
+                    <div key={item.label} className="flex justify-between items-center border-b border-gray-300 py-2">
+                        <span className="text-gray-700 font-medium">{item.label}</span>
+                        <div className="flex items-center">
+                            <button
+                                className="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition duration-300 text-sm"
+                                onClick={() => handleViewDocument(item.proof)}
+                            >
+                                View
+                            </button>
+                            <button
+                                className="bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-300 text-sm ml-2"
+                                onClick={() => handleResubmitClick({
+                                    id: doc.id,
+                                    label: item.label,
+                                    proof: item.proof // Pass the proof URL as well
+                                })}
+                            >
+                                Resubmit
+                            </button>
+                        </div>
+                    </div>
+                )
+            ))}
+        </div>
+    </div>
+))}
+
+            </ul>
+            <div className="mt-4">
+                <button
+                    className="w-full bg-red-600 text-white font-semibold py-2 rounded hover:bg-red-700 transition duration-300"
+                    onClick={handleCloseModal}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+ 
+ {isResubmitModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-lg p-8 w-11/12 md:w-96">
+            <div className="flex items-center justify-center mb-4">
+                <HiUpload className="text-blue-600 text-4xl" />
+            </div>
+            <h2 className="text-2xl font-semibold text-center mb-2">Resubmit Document</h2>
+            <p className="text-center mb-4 text-gray-600">
+                You are resubmitting for: <span className="font-bold">{selectedDoc?.label}</span>
+            </p>
+            <input
+                type="file"
+                onChange={handleFileUploadChange}
+                className="w-full border border-gray-300 rounded-md p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300"
+            />
+            <div className="flex flex-col mt-4">
+                <button
+                    className="w-full bg-blue-600 text-white font-semibold py-2 rounded hover:bg-blue-700 transition duration-300"
+                    onClick={uploadDocument}
+                >
+                    Upload
+                </button>
+                <button
+                    className="w-full bg-red-600 text-white font-semibold py-2 rounded hover:bg-red-700 transition duration-300 mt-2"
+                    onClick={() => setResubmitModalVisible(false)}
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
+{isUploading && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-lg p-8 w-10/12 md:w-1/2 lg:w-1/3 flex flex-col items-center">
+            <div className="animate-spin h-16 w-16 border-4 border-t-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+            <h2 className="text-2xl font-bold text-center mb-2 text-gray-800">Uploading Document...</h2>
+            <p className="text-gray-600 text-center">Please wait while your document is being uploaded.</p>
+        </div>
+    </div>
+)}
+
+{successModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-lg p-4 w-10/12 md:w-1/3 lg:w-1/4">
+            <div className="flex items-center justify-center mb-2">
+                <HiCheckCircle className="text-green-600 text-7xl" /> {/* Use the Hi icon here */}
+            </div>
+            <h2 className="text-xl font-bold text-center mb-2">Success!</h2>
+            <p className="text-center mb-4">The document has been successfully resubmitted.</p>
+            <div className="mt-2">
+                <button
+                    className="w-full bg-green-600 text-white font-semibold py-2 rounded hover:bg-green-700 transition duration-300"
+                    onClick={() => setSuccessModalVisible(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
          {isSuccessModalOpen && (
     <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-75 z-50">
         <div className="relative bg-white p-8 rounded-lg shadow-lg w-full max-w-md text-center"> {/* Adjusted padding and max width */}

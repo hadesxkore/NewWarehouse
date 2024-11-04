@@ -54,7 +54,7 @@ function Navigation() {
                 </div>
                 <div className="flex space-x-6">
                     <NavLink to="/superadmin" className="text-lg font-semibold nav-link" activeClassName="active">Main</NavLink>
-                    <NavLink to="/warehouses" className="text-lg font-semibold nav-link" activeClassName="active">Warehouses</NavLink> {/* Add Warehouses Link */}
+                    <NavLink to="/warehouses" className="text-lg font-semibold nav-link" activeClassName="active">Reports</NavLink> {/* Add Warehouses Link */}
                     <NavLink to="/users" className="text-lg font-semibold nav-link" activeClassName="active">Users</NavLink>
                     <NavLink to="/analytics" className="text-lg font-semibold nav-link" activeClassName="active">Charts</NavLink>
                     <button onClick={handleLogout} className="text-lg font-semibold nav-link">Logout</button>

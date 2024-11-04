@@ -411,17 +411,12 @@ const handleSaveTerms = async () => {
                 placeholder="Edit terms here..."
             />
             <div className="flex justify-end">
-                <button
-                    onClick={handleSaveTerms}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-md mr-2 hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
-                >
-                    Save
-                </button>
+                
                 <button
                     onClick={() => setShowEditModal(false)}
-                    className="px-4 py-2 bg-gray-300 text-black rounded-md hover:bg-gray-400 focus:outline-none focus:bg-gray-400"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500 focus:outline-none focus:bg-blue-400"
                 >
-                    Cancel
+                    Save
                 </button>
             </div>
         </div>
