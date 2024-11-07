@@ -12,6 +12,8 @@ import moreIcon from '../images/more.png';
 import documentIcon from '../images/document.png';
 import deleteIcon from '../images/delete.png';
 import sendIcon from '../images/send-message.png';
+import { format } from 'date-fns';
+
 
 const Conversation = () => {
     const { conversationId } = useParams();
@@ -37,7 +39,6 @@ const Conversation = () => {
                 const conversationData = conversationSnapshot.data();
                 setConversation(conversationData);
 
-                // Determine the role based on rentedWarehouses collection
                 const ownerParticipantId = conversationData.participants.find(participant => participant !== currentUserId);
                 const rentedWarehousesRef = firestore.collection('rentedWarehouses');
                 const rentedWarehousesSnapshot = await rentedWarehousesRef.where('ownerUid', '==', ownerParticipantId).get();
@@ -67,6 +68,7 @@ const Conversation = () => {
             console.error('Error loading conversation:', error);
         }
     };
+
 
     const sendMessage = async () => {
         try {
@@ -232,9 +234,9 @@ const Conversation = () => {
             }
         });
 
-        const messagesRef = firestore.collection('conversations').doc(conversationId).collection('messages').orderBy('timestamp', 'asc');
+       const messagesRef = firestore.collection('conversations').doc(conversationId).collection('messages').orderBy('timestamp', 'asc');
         const unsubscribeMessages = messagesRef.onSnapshot(snapshot => {
-            const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); // Add 'id' field to each message
+            const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setMessages(messagesData);
             scrollToBottom();
         });
@@ -309,7 +311,9 @@ const Conversation = () => {
                 <div className={`relative ${message.senderId === currentUserId ?'bg-white text-gray-800' : 'bg-blue-400 text-white'} p-4 rounded-lg inline-block`}>
                     {message.type === 'text' && (
                         <p className="text-xl">{message.text}</p>
+                        
                     )}
+               
                    {message.type === 'file' && message.fileType === 'image' && (
                         <div>
                             <img
@@ -370,10 +374,14 @@ const Conversation = () => {
                         </button>
                     </div>
                 )}
+                     <p className="text-xs text-gray-500 mt-1">
+                {format(new Date(message.timestamp.seconds * 1000), 'MMMM dd, yyyy hh:mm a')}
+            </p>
             </div>
         ))}
         <div ref={messagesEndRef} />
     </div>
+    
     <div className="flex items-center bg-white px-4 py-3 rounded-full">
         <input
             type="text"
@@ -394,6 +402,7 @@ const Conversation = () => {
 </button>
     </div>
 </div>
+
 
             </div>
             {/* Confirmation dialog */}

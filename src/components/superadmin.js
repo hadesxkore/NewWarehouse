@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { firestore } from '../firebase'; // Import your Firebase configuration
 import Navigation from './Navigation';
 import './Superadmin.css';
+import { useNavigate } from 'react-router-dom';  // Import the useNavigate hook
+
 import { HiCalendar, HiArrowUp, HiArrowDown } from "react-icons/hi";
 import error1 from '../images/error1.png';
 import success from '../images/Success.gif'
@@ -24,6 +26,9 @@ function Superadmin() {
     const [sortOption, setSortOption] = useState(''); // State for sorting option
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
+    const [archivedWarehouses, setArchivedWarehouses] = useState([]);
+    const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+    const navigate = useNavigate();  // Initialize the navigate function
 
     const closeDeleteErrorModal = () => {
         setIsDeleteErrorModalOpen(false);
@@ -33,18 +38,28 @@ function Superadmin() {
   
     const confirmDelete = async () => {
         if (!warehouseToDelete) return;
-
+    
         try {
-            await firestore.collection('warehouses').doc(warehouseToDelete).delete();
-            fetchUploadedWarehouses();
-            setFilterStatus('');
-
+            const warehouseDocRef = firestore.collection('warehouses').doc(warehouseToDelete);
+            const warehouseDoc = await warehouseDocRef.get();
+            
+            // Archive the warehouse before deleting it
+            const archiveData = warehouseDoc.data();
+            archiveData.deletedAt = new Date();  // Add a timestamp for the archive
+            await firestore.collection('archivedWarehouses').doc(warehouseToDelete).set(archiveData);
+    
+            // Delete from 'warehouses'
+            await warehouseDocRef.delete();
+    
+            // Also delete from 'rentedWarehouses' if it exists
             const rentedWarehouseRef = firestore.collection('rentedWarehouses').doc(warehouseToDelete);
             const rentedWarehouseDoc = await rentedWarehouseRef.get();
             if (rentedWarehouseDoc.exists) {
                 await rentedWarehouseRef.delete();
             }
-
+    
+            fetchUploadedWarehouses();  // Refresh warehouse list
+            setFilterStatus('');
             setIsDeleteConfirmModalOpen(false);
             setIsSuccessModalOpen(true);
             setWarehouseToDelete(null);
@@ -53,6 +68,34 @@ function Superadmin() {
             alert('An error occurred while deleting the warehouse. Please try again later.');
         }
     };
+
+    
+
+const fetchArchivedWarehouses = async () => {
+    try {
+        const archivedRef = firestore.collection('archivedWarehouses');
+        const snapshot = await archivedRef.get();
+        const archivedData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        setArchivedWarehouses(archivedData);
+    } catch (error) {
+        console.error('Error fetching archived warehouses:', error);
+    }
+};
+
+
+ // This function is called when the button is clicked
+ const openArchiveModal = () => {
+    navigate('/ArchiveWarehouse');  // Redirects to the ArchiveWarehouse page
+};
+
+const closeArchiveModal = () => {
+    setIsArchiveModalOpen(false);
+};
+
+
     const cancelDelete = () => {
         setIsDeleteConfirmModalOpen(false);
         setWarehouseToDelete(null);
@@ -243,7 +286,12 @@ const handleViewFiles = (warehouseId) => {
         </select>
     </div>
 </div>
-
+<button
+                onClick={openArchiveModal}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+            >
+                View Archived Warehouses
+            </button>
 {/* Display icons beside dropdown for a similar effect */}
 <div className="absolute top-12 right-0 flex flex-col space-y-2 mt-2 text-gray-600">
     {sortOption === "uploadDateAsc" && <HiCalendar />}
@@ -541,6 +589,38 @@ const handleViewFiles = (warehouseId) => {
         </div>
     </div>
 )}
+
+
+{isArchiveModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white w-full md:w-3/4 lg:w-1/2 xl:w-1/3 rounded-lg shadow-2xl p-6 relative max-w-md">
+            <button
+                onClick={closeArchiveModal}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl"
+            >
+                &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4">Archived Warehouses</h2>
+            <div className="space-y-4">
+                {archivedWarehouses.length > 0 ? (
+                    archivedWarehouses.map(warehouse => (
+                        <div key={warehouse.id} className="bg-white p-4 rounded-lg shadow-md">
+                            <h3 className="text-lg font-semibold">{warehouse.name}</h3>
+                            <p className="text-gray-600 mb-2"><span className="font-bold">Address:</span> {warehouse.address}</p>
+                            <p className="text-gray-600 mb-2"><span className="font-bold">Price:</span> ₱{warehouse.price}</p>
+                            <p className="text-gray-600 mb-2"><span className="font-bold">Status:</span> Archived</p>
+                            <p className="text-gray-600 mb-2"><span className="font-bold">Deleted At:</span> {new Date(warehouse.deletedAt.seconds * 1000).toLocaleString()}</p>
+                        </div>
+                    ))
+                ) : (
+                    <p>No archived warehouses.</p>
+                )}
+            </div>
+        </div>
+    </div>
+)}
+
+
 
 {/* Error Modal for Delete Error */}
 {isDeleteErrorModalOpen && (

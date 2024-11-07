@@ -224,6 +224,13 @@ const [documents, setDocuments] = useState([]);
         }
     };
     
+    // Utility function to calculate the max date for 18+ restriction
+const getMaxBirthdate = () => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 18); // 18 years ago
+    return today.toISOString().split("T")[0]; // Format as yyyy-mm-dd
+};
+
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
@@ -232,6 +239,7 @@ const [documents, setDocuments] = useState([]);
         contact_number: '',
         email: ''
     });
+    const maxBirthdate = getMaxBirthdate(); // Calculate max birthdate for 18+
     const [successMessage, setSuccessMessage] = useState('');
     const [editMode, setEditMode] = useState({
         first_name: false,
@@ -419,14 +427,13 @@ const [documents, setDocuments] = useState([]);
             setFormData({ ...formData, [field]: initialFormData[field] });
         }
         setEditMode({ ...editMode, [field]: !editMode[field] });
-    
-        // Animate border color change
         setFieldBorderColor(field, editMode[field] ? 'gray-300' : 'blue-500');
     };
-        const setFieldBorderColor = (field, color) => {
+
+    const setFieldBorderColor = (field, color) => {
         setFieldBorderColors({ ...fieldBorderColors, [field]: color });
     };
-    
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormData({
@@ -537,108 +544,7 @@ const handleProfileImageChange = (e) => {
                  
                
             </div>
-           {/* Modal for Document Verification and Document Viewing */}
-{isModalOpen && (
-    <div className="modal fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-75 flex justify-center items-center z-50">
-        <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.1 }}
-            className="modal-content bg-white p-4 max-w-3xl max-h-3/4 overflow-y-auto relative"
-        >
-            <button className="absolute top-2 right-2 text-gray-700 hover:text-gray-900" onClick={handleModalClose}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-            {isVerified ? ( // Render document view if verified
-                <div>
-                    <div className="modal-header flex justify-center items-center mb-4">
-                        <h2 className="text-xl font-bold">Uploaded Documents</h2>
-                    </div>
-                    <div className="modal-body">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.identificationProof)}
-        >
-            Identification Proof
-        </button>
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.addressProof)}
-        >
-            Address Proof
-        </button>
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.ownershipDocuments)}
-        >
-            Ownership Documents
-        </button>
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.previousTenancyDetails)}
-        >
-            Previous Tenancy Details
-        </button>
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.businessPermit)}
-        >
-            Business Permit
-        </button>
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.buildingPermit)}
-        >
-            Building Permit
-        </button>
-        <button
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out"
-            onClick={() => openDocument(documents.maintenanceRecords)}
-        >
-            Maintenance Records
-        </button>
-    </div>
-</div>
-
-                    <div className="modal-footer mt-4">
-                        <button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={handleModalClose}>
-                            Close
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div>
-                    <h2 className="text-xl font-bold text-center mb-4">Verification Required</h2>
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        className="block w-full px-4 py-2 mb-4 border border-gray-300 rounded"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        className="block w-full px-4 py-2 mb-4 border border-gray-300 rounded"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" onClick={handleVerifyUser}>
-                        Verify
-                    </button>
-                    {errorMessage && <p className="text-red-500 mt-2">{errorMessage}</p>}
-                </div>
-            )}
-        </motion.div>
-    </div>
-)}
-
-
-       
-    
+  
 
                 <div className="flex-grow max-w-4xl bg-white rounded-lg shadow-lg p-6 md:w-2/3 ml-28 personal-info-card">
 
@@ -686,22 +592,33 @@ const handleProfileImageChange = (e) => {
                             </div>
                         </div>
                         <div className="mb-6">
-                            <label htmlFor="birthdate" className="block text-gray-700 mb-1">Birthdate:</label>
-                            <div className="relative">
-                                <input type="date" id="birthdate" name="birthdate" value={formData.birthdate} onChange={handleInputChange} className={`form-input pl-3 py-2 rounded-md w-full ${editMode.birthdate ? 'bg-gray-100' : 'bg-gray-300'}`} disabled={!editMode.birthdate} />
-                                {!editMode.birthdate ? (
-                                  <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700" onClick={(e) => handleEdit('birthdate', e)}>
-                                  Edit
-                              </button>
-                              
-                                ) : (
-                                    <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-red-500 hover:text-red-700" onClick={(e) => handleEdit('birthdate', e)}>
-                                    Cancel
-                                </button>
-                                
-                                )}
-                            </div>
-                        </div>
+                <label htmlFor="birthdate" className="block text-gray-700 mb-1">Birthdate:</label>
+                <div className="relative">
+                    <input
+                        type="date"
+                        id="birthdate"
+                        name="birthdate"
+                        value={formData.birthdate}
+                        onChange={handleInputChange}
+                        className={`form-input pl-3 py-2 rounded-md w-full ${editMode.birthdate ? 'bg-gray-100' : 'bg-gray-300'}`}
+                        disabled={!editMode.birthdate}
+                        max={maxBirthdate} // Set the maximum date to 18 years ago
+                    />
+                    {!editMode.birthdate ? (
+                        <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700" onClick={(e) => handleEdit('birthdate', e)}>
+                            Edit
+                        </button>
+                    ) : (
+                        <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-red-500 hover:text-red-700" onClick={(e) => handleEdit('birthdate', e)}>
+                            Cancel
+                        </button>
+                    )}
+                </div>
+                {/* Optional: Add a message if birthdate is invalid */}
+                {formData.birthdate && new Date(formData.birthdate) > new Date(maxBirthdate) && (
+                    <p className="text-red-500 mt-2">You must be 18 years or older to access.</p>
+                )}
+            </div>
                         <div className="mb-6">
                             <label htmlFor="address" className="block text-gray-700 mb-1">Address:</label>
                             <div className="relative">
@@ -720,22 +637,43 @@ const handleProfileImageChange = (e) => {
                             </div>
                         </div>
                         <div className="mb-6">
-                            <label htmlFor="contact_number" className="block text-gray-700 mb-1">Contact Number:</label>
-                            <div className="relative">
-                                <input type="text" id="contact_number" name="contact_number" value={formData.contact_number} onChange={handleInputChange} className={`form-input pl-3 py-2 rounded-md w-full ${editMode.contact_number ? 'bg-gray-100' : 'bg-gray-300'}`} disabled={!editMode.contact_number} />
-                                {!editMode.contact_number ? (
-                                  <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700" onClick={(e) => handleEdit('contact_number', e)}>
-                                  Edit
-                              </button>
-                              
-                                ) : (
-                                    <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-red-500 hover:text-red-700" onClick={(e) => handleEdit('contact_number', e)}>
-                                    Cancel
-                                </button>
-                                
-                                )}
-                            </div>
-                        </div>
+    <label htmlFor="contact_number" className="block text-gray-700 mb-1">Contact Number:</label>
+    <div className="relative">
+        <input
+            type="text"
+            id="contact_number"
+            name="contact_number"
+            value={formData.contact_number}
+            onChange={(e) => {
+                const input = e.target.value;
+                // Only update if the input matches the "09" pattern and is 11 digits or less
+                if (/^09\d{0,9}$/.test(input)) {
+                    handleInputChange(e);
+                }
+            }}
+            className={`form-input pl-3 py-2 rounded-md w-full ${editMode.contact_number ? 'bg-gray-100' : 'bg-gray-300'}`}
+            disabled={!editMode.contact_number}
+            placeholder="09123456789"
+            maxLength="11" // Enforces a max length of 11 digits
+        />
+        {!editMode.contact_number ? (
+            <button
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700"
+                onClick={(e) => handleEdit('contact_number', e)}
+            >
+                Edit
+            </button>
+        ) : (
+            <button
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-red-500 hover:text-red-700"
+                onClick={(e) => handleEdit('contact_number', e)}
+            >
+                Cancel
+            </button>
+        )}
+    </div>
+</div>
+
                         <div className="mb-6">
     <label htmlFor="email" className="block text-gray-700 mb-1">Email:</label>
     <input type="email" id="email" name="email" value={auth.currentUser ? auth.currentUser.email : ''} className="form-input pl-3 py-2 rounded-md w-full bg-gray-300" readOnly />

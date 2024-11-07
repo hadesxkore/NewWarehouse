@@ -26,6 +26,8 @@ import RentalAgreements from './components/RentalAgreements';
 import CreateAgreement from './components/CreateAgreement';
 import Navbar from './components/Navbar';
 import Conversation from './components/Conversation'; // Import the Conversation component
+import ArchiveWarehouse from './components/ArchiveWarehouse'; // Import the Conversation component
+
 
 function App() {
     const [loading, setLoading] = useState(true);
@@ -72,6 +74,8 @@ function App() {
                         <Route path="/users" element={<Users />} />
                         <Route path="/reports" element={<Reports />} />
                         <Route path="/Analytics" element={<Analytics />} />
+                        <Route path="/ArchiveWarehouse" element={<ArchiveWarehouse />} />
+                        
                          {/* Add the Warehouses component route */}
                          <Route path="/warehouses" element={<Warehouses />} />
                         
