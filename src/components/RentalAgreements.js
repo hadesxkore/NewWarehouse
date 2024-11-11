@@ -3,6 +3,8 @@ import { db, auth, firestore } from '../firebase'; // Import firebase and firest
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { saveAs } from 'file-saver'; // Import saveAs function from file-saver library
+import { jsPDF } from 'jspdf'; // Import jsPDF for PDF generation
+import { HiX, HiCheckCircle, HiOutlineExclamation  } from 'react-icons/hi'; // Import the icons
 import error1 from '../images/error1.png';
 function RentalAgreements() {
     const [rentalAgreements, setRentalAgreements] = useState([]);
@@ -165,6 +167,43 @@ function RentalAgreements() {
         setTimeout(() => setSuccessMessage(false), 3000); // Hide message after 3 seconds
     };
 
+     // Function to convert to PDF
+     const handleConvertToPDF = () => {
+        if (!selectedAgreement) {
+            alert('Please click the View button first.');
+            return;
+        }
+
+        const doc = new jsPDF();
+
+        const { warehouseName, lessorName, lesseeName, start_date, end_date, rentAmount, rentFrequency, depositAmount, terms } = selectedAgreement;
+
+        // Add content to the PDF
+        doc.setFontSize(18);
+        doc.text('Rental Agreement', 20, 20);
+
+        doc.setFontSize(14);
+        doc.text(`Warehouse Name: ${warehouseName}`, 20, 40);
+        doc.text(`Lessor Name: ${lessorName}`, 20, 50);
+        doc.text(`Lessee Name: ${lesseeName}`, 20, 60);
+        doc.text(`Start Date: ${new Date(start_date).toLocaleDateString()}`, 20, 70);
+        doc.text(`End Date: ${new Date(end_date).toLocaleDateString()}`, 20, 80);
+        doc.text(`Amount: ₱${rentAmount} (${rentFrequency})`, 20, 90);
+        doc.text(`Deposit: ₱${depositAmount}`, 20, 100);
+
+        // Terms Section
+        doc.text('Terms:', 20, 120);
+        const termsArr = terms.split('\n');
+        termsArr.forEach((term, index) => {
+            const lineHeight = 10;
+            const yOffset = 130 + (index * lineHeight);
+            doc.text(term, 20, yOffset);
+        });
+
+        // Save the PDF
+        doc.save('rental_agreement.pdf');
+    };
+    
     return (
         <div className="flex flex-col min-h-screen">
             <Navbar />
@@ -237,29 +276,37 @@ function RentalAgreements() {
                             </div>
                         ))}
                     </div>
-
                     {confirmDeleteVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-        <div className="absolute bg-white rounded-lg shadow-md p-8 y-8">
-            <p className="mb-4 text-center text-lg">Are you sure you want to terminate this agreement?</p>
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full">
+            <div className="text-center mb-6">
+                {/* Updated Icon */}
+                <HiOutlineExclamation  className="text-yellow-500 text-6xl mb-4 mx-auto" />
+                <p className="text-lg font-semibold text-gray-800">Are you sure you want to terminate this agreement?</p>
+            </div>
+
             <textarea
                 value={terminationReason}
                 onChange={(e) => setTerminationReason(e.target.value)}
-                className="block w-full border border-gray-300 rounded-md p-2 mb-4"
+                className="block w-full border border-gray-300 rounded-md p-3 mb-4 focus:ring-2 focus:ring-red-500"
                 rows="4"
-                placeholder="Enter termination reason...(Optional)"
+                placeholder="Enter termination reason... (Optional)"
             ></textarea>
-            <div className="flex justify-center mt-6">
+
+            <div className="flex justify-between mt-6">
                 <button
                     onClick={() => setConfirmDeleteVisible(false)}
-                    className="mr-2 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md"
+                    className="flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
+                    <HiX className="mr-2 text-xl" />
                     Cancel
                 </button>
+
                 <button
                     onClick={() => handleDelete(agreementToDelete)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md"
+                    className="flex items-center justify-center bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
+                    <HiCheckCircle className="mr-2 text-xl" />
                     End Contract
                 </button>
             </div>
@@ -360,55 +407,82 @@ function RentalAgreements() {
 {modalVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
         <div className="absolute inset-0 flex items-center justify-center z-60">
-            <div className="relative bg-white rounded-lg shadow-lg p-6 w-4/5 max-w-4xl max-h-full overflow-y-auto">
+            <div className="relative bg-white rounded-lg shadow-lg p-6 w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto">
                 <button
-                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl"
+                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
                     onClick={() => setModalVisible(false)}
                 >
                     &times;
                 </button>
                 <h2 className="text-xl font-semibold mb-4 text-center">Rental Agreement</h2>
                 <div className="border-b border-gray-400 mb-4"></div>
+
+                {/* Warehouse Name */}
                 <div className="flex justify-center mb-4">
                     <div className="border border-gray-400 rounded-full px-4 py-2 text-lg font-semibold">
                         {selectedAgreement?.warehouseName}
                     </div>
                 </div>
-                <div className="flex mb-4 justify-between">
-                    <p className="font-semibold text-sm">Lessor Name:</p>
-                    <p className="text-sm">{selectedAgreement?.lessorName}</p>
-                </div>
-                <div className="flex mb-4 justify-between">
-                    <p className="font-semibold text-sm">Lessee Name:</p>
-                    <p className="text-sm">{selectedAgreement?.lesseeName}</p>
-                </div>
-                <div className="border-b border-gray-400 mb-4"></div>
+
+                {/* Lessor and Lessee Names */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
+                    <div className="flex justify-between">
+                        <p className="font-semibold text-sm">Lessor Name:</p>
+                        <p className="text-sm">{selectedAgreement?.lessorName}</p>
+                    </div>
+                    <div className="flex justify-between">
+                        <p className="font-semibold text-sm">Lessee Name:</p>
+                        <p className="text-sm">{selectedAgreement?.lesseeName}</p>
+                    </div>
+                </div>
+
+                <div className="border-b border-gray-400 mb-4"></div>
+
+                {/* Start Date, End Date, Amount, and Deposit */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="flex justify-between">
                         <p className="font-semibold text-sm">Start Date:</p>
                         <p className="text-sm">{new Date(selectedAgreement?.start_date).toLocaleDateString()}</p>
                     </div>
-                    <div>
+                    <div className="flex justify-between">
                         <p className="font-semibold text-sm">End Date:</p>
                         <p className="text-sm">{new Date(selectedAgreement?.end_date).toLocaleDateString()}</p>
                     </div>
-                    <div>
+                    <div className="flex justify-between">
                         <p className="font-semibold text-sm">Amount:</p>
-                        <p className="text-sm">₱{selectedAgreement?.rentAmount} ({selectedAgreement?.rentFrequency})</p>
+                        <p className="text-sm">₱{selectedAgreement?.rentAmount}</p>
                     </div>
-                    <div>
+                    <div className="flex justify-between">
                         <p className="font-semibold text-sm">Deposit:</p>
                         <p className="text-sm">₱{selectedAgreement?.depositAmount}</p>
                     </div>
                 </div>
+
                 <div className="border-b border-gray-400 mb-4"></div>
-                <div className="mb-4">
+
+                {/* Terms Section */}
+                <div className="mb-4 max-h-[300px] overflow-y-auto">
                     <p className="font-semibold text-sm mb-2">Terms:</p>
-                    <div className="pl-4 text-justify">
-                        <p style={{ textIndent: '3em', fontSize: '0.875rem' }}>{selectedAgreement?.terms}</p>
+                    <div className="pl-4 text-sm text-justify">
+                        {/* Splitting terms by period or new line (depending on how they're stored) */}
+                        {selectedAgreement?.terms?.split('\n').map((term, index) => {
+                            const isNumberedTerm = /\d+\./.test(term); // Check if the line starts with a number and period
+                            return (
+                                <div key={index} className="mb-2">
+                                    <p className="text-sm">
+                                        {/* Make the numbered term bold */}
+                                        {isNumberedTerm ? <strong>{term}</strong> : term}
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
-                <div className="flex mt-10 justify-between">
+
+                <div className="border-b border-gray-400 mb-4"></div>
+
+                {/* Signatures Section */}
+                <div className="flex justify-between mb-4">
                     <div className="text-right">
                         <hr className="mt-1 mb-1 border-gray-400" />
                         <p className="text-sm">Lessee Signature</p>
@@ -422,7 +496,6 @@ function RentalAgreements() {
         </div>
     </div>
 )}
-
 
                     {successMessage && (
                         <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-lg shadow-md">

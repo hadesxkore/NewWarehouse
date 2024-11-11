@@ -3,8 +3,10 @@ import { firestore } from '../firebase'; // Import your Firebase configuration
 import Navigation from './Navigation';
 import './Superadmin.css';
 import { useNavigate } from 'react-router-dom';  // Import the useNavigate hook
+import firebase from 'firebase/compat/app';  // Ensure this import is included
+import 'firebase/compat/firestore'; // Ensure this import is included for Firestore
 
-import { HiCalendar, HiArrowUp, HiArrowDown } from "react-icons/hi";
+import { HiCalendar, HiArrowUp, HiArrowDown, HiX, HiCheckCircle, HiXCircle, HiOutlineEye} from "react-icons/hi";
 import error1 from '../images/error1.png';
 import success from '../images/Success.gif'
 function Superadmin() {
@@ -28,6 +30,15 @@ function Superadmin() {
     const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
     const [archivedWarehouses, setArchivedWarehouses] = useState([]);
     const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+    const [selectedApproval, setSelectedApproval] = useState(null);
+    const [showApproveModal, setShowApproveModal] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [fileStatuses, setFileStatuses] = useState({});
+    const [showApproveSuccessModal, setShowApproveSuccessModal] = useState(false);
+const [showRejectSuccessModal, setShowRejectSuccessModal] = useState(false);
+
+    const [rejectionReasonText, setRejectionReasonText] = useState("");
+
     const navigate = useNavigate();  // Initialize the navigate function
 
     const closeDeleteErrorModal = () => {
@@ -208,30 +219,132 @@ const openConfirmModal = (warehouseId) => {
     const closeSuccessModal = () => {
         setIsSuccessModalOpen(false);
     };
-  // Function to handle opening the modal and setting selected files
-const handleViewFiles = (warehouseId) => {
-    const warehouse = uploadedWarehouses.find(wh => wh.id === warehouseId);
-    if (warehouse) {
-        // Filter out any null or undefined URLs
-        const availableFiles = [
-            { label: "Identification Proof/Valid ID", url: warehouse.identificationProof },
-            { label: "Address Proof", url: warehouse.addressProof },
-            { label: "Ownership Documents", url: warehouse.ownershipDocuments },
-            { label: "Previous Tenancy Details (if applicable)", url: warehouse.previousTenancyDetails },
-            { label: "Business Permit", url: warehouse.businessPermit },
-            { label: "Sanitary Permit", url: warehouse.sanitaryPermit },
-            { label: "Maintenance Records", url: warehouse.maintenanceRecords }
-            // Add more fields as needed
-        ].filter(file => file.url); // Only keep files with valid URLs
+    const handleViewFiles = async (warehouseId) => {
+        const warehouse = uploadedWarehouses.find(wh => wh.id === warehouseId);
+        if (warehouse) {
+            // Fetch file statuses from Firestore
+            try {
+                const warehouseRef = firestore.collection('warehouses').doc(warehouseId);
+                const warehouseDoc = await warehouseRef.get();
+                const fileStatusesFromDb = warehouseDoc.data()?.fileStatuses || [];
+    
+                // Create a map for the file statuses
+                const fileStatusesMap = fileStatusesFromDb.reduce((acc, file) => {
+                    const sanitizedLabel = sanitizeFieldName(file.fileLabel);
+                    acc[sanitizedLabel] = file.status;
+                    return acc;
+                }, {});
+    
+                // Update local state with the file statuses
+                setFileStatuses(fileStatusesMap);
+    
+                // Filter out any null or undefined URLs
+                const availableFiles = [
+                    { label: "Identification Proof", url: warehouse.identificationProof },
+                    { label: "Address Proof", url: warehouse.addressProof },
+                    { label: "Ownership Documents", url: warehouse.ownershipDocuments },
+                    { label: "Previous Tenancy Details", url: warehouse.previousTenancyDetails },
+                    { label: "Business Permit", url: warehouse.businessPermit },
+                    { label: "Sanitary Permit", url: warehouse.sanitaryPermit },
+                    { label: "Maintenance Records", url: warehouse.maintenanceRecords }
+                ].filter(file => file.url); // Only keep files with valid URLs
+    
+                setSelectedFiles(availableFiles);
+                setSelectedWarehouse(warehouse);
+                setIsModalOpen(true);
+            } catch (error) {
+                console.error('Error fetching warehouse data:', error);
+            }
+        } else {
+            console.error('Warehouse not found');
+        }
+    };
 
-        setSelectedFiles(availableFiles);
-        setSelectedWarehouse(warehouse);
-        setIsModalOpen(true);
-    } else {
-        console.error('Warehouse not found');
+// Handle Approve button click
+const handleApproveClick = (file, warehouseId) => {
+    setSelectedApproval({ warehouseId, fileLabel: file.label }); // Store warehouseId and file label together
+    setShowApproveModal(true);
+  };
+  
+
+// Handle Reject button click
+const handleRejectClick = (file, warehouseId) => {
+    setSelectedApproval({ warehouseId, fileLabel: file.label }); // Store warehouseId and file label together
+    setShowRejectModal(true);
+  };
+
+// Function to sanitize the file label
+const sanitizeFieldName = (label) => {
+    return label.replace(/[^a-zA-Z0-9]/g, '_'); // Replace non-alphanumeric characters with underscores
+};
+// Handle Confirm Approve
+const handleConfirmApprove = async () => {
+    setShowApproveModal(false);
+
+    const sanitizedFileLabel = sanitizeFieldName(selectedApproval.fileLabel);
+
+    // Update local state immediately
+    setFileStatuses((prevStatuses) => ({
+        ...prevStatuses,
+        [sanitizedFileLabel]: 'Approved',
+    }));
+
+    try {
+        const warehouseRef = firestore.collection('warehouses').doc(selectedApproval.warehouseId);
+        await warehouseRef.update({
+            fileStatuses: firebase.firestore.FieldValue.arrayUnion({
+                fileLabel: sanitizedFileLabel,
+                status: 'Approved',
+            }),
+        });
+        console.log('Warehouse document updated with Approved status for file:', selectedApproval.fileLabel);
+
+        // Show success modal after approval
+        setShowApproveSuccessModal(true);
+    } catch (error) {
+        console.error('Error updating approval status:', error);
     }
 };
 
+// Handle Confirm Reject
+const handleConfirmReject = async () => {
+    setShowRejectModal(false);
+
+    const sanitizedFileLabel = sanitizeFieldName(selectedApproval.fileLabel);
+
+    // Update local state immediately
+    setFileStatuses((prevStatuses) => ({
+        ...prevStatuses,
+        [sanitizedFileLabel]: 'Rejected',
+    }));
+
+    try {
+        const warehouseRef = firestore.collection('warehouses').doc(selectedApproval.warehouseId);
+        await warehouseRef.update({
+            fileStatuses: firebase.firestore.FieldValue.arrayUnion({
+                fileLabel: sanitizedFileLabel,
+                status: 'Rejected',
+                rejectionReason: rejectionReasonText,
+            }),
+        });
+        console.log('Warehouse document updated with Rejected status for file:', selectedApproval.fileLabel);
+
+        // Show success modal after rejection
+        setShowRejectSuccessModal(true);
+    } catch (error) {
+        console.error('Error updating rejection status:', error);
+    }
+};
+
+
+
+
+
+
+// Handle change in rejection reason input
+const handleRejectionReasonChange = (event) => {
+    setRejectionReasonText(event.target.value);
+};
 
     // Function to close the modal
     const closeModal = () => {
@@ -412,39 +525,244 @@ const handleViewFiles = (warehouseId) => {
     </div>
 )}
 
-         {/* Modal for Viewing Files */}
+  {/* Modal for Viewing Files */}
 {isModalOpen && (
-    <div className="modal fixed top-0 left-0 w-full h-full flex justify-center items-center bg-black bg-opacity-50 z-50">
-        <div className="modal-content bg-white p-6 max-w-4xl max-h-[80%] overflow-y-auto rounded-lg shadow-lg transition-transform transform duration-300">
-            <button 
-                className="absolute top-4 right-4 text-gray-700 hover:text-gray-900 transition-colors"
+    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-60 z-50">
+        <div className="bg-white p-6 sm:p-8 w-full max-w-3xl rounded-2xl shadow-lg transition-transform transform duration-300">
+            <button
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
                 onClick={closeModal}
                 aria-label="Close Modal"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <HiX className="h-8 w-8" />
             </button>
-            <div className="modal-header text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Documents for {selectedWarehouse?.name}</h2>
+            <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-gray-900">Documents for {selectedWarehouse?.name}</h2>
             </div>
-            <div className="modal-body grid grid-cols-2 md:grid-cols-3 gap-6">
-                {selectedFiles.map((file, index) => (
-                    <div key={index} className="file-item flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-                        {file.url.endsWith('.jpg') || file.url.endsWith('.jpeg') || file.url.endsWith('.png') ? (
-                            <img src={file.url} alt={file.label} className="h-32 w-32 object-cover rounded-md mb-2 shadow-sm" />
+            <div className="space-y-6">
+            {selectedFiles.map((file, index) => {
+    const sanitizedLabel = sanitizeFieldName(file.label);
+    const fileStatus = fileStatuses[sanitizedLabel] || '';  // Use fileStatuses from the state
+
+    return (
+        <div key={index} className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200">
+            <p className="text-lg font-semibold text-gray-800 flex-1 text-center">{file.label}</p>
+
+            <a
+                href={file.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
+            >
+                View
+            </a>
+
+            <div className="flex items-center gap-6 justify-center">
+                {fileStatus === 'Approved' || fileStatus === 'Rejected' ? (
+                    <p className={`text-lg font-semibold flex items-center ${fileStatus === 'Approved' ? 'text-green-600' : 'text-red-600'}`}>
+                        {fileStatus === 'Approved' ? (
+                            <HiCheckCircle className="h-5 w-5 mr-2" />
                         ) : (
-                            <div className="w-full text-center">
-                                <p className="text-gray-600 mb-1">{file.label}</p>
-                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">View File</a>
-                            </div>
+                            <HiXCircle className="h-5 w-5 mr-2" />
                         )}
-                    </div>
-                ))}
+                        {fileStatus}
+                    </p>
+                ) : (
+                    <>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name={`status-${index}`}
+                                className="accent-green-600"
+                                onClick={() => handleApproveClick(file, selectedWarehouse.id)}
+                            />
+                            <span className="flex items-center text-green-600">
+                                <HiCheckCircle className="h-5 w-5 mr-2" />
+                                Approve
+                            </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name={`status-${index}`}
+                                className="accent-red-600"
+                                onClick={() => handleRejectClick(file, selectedWarehouse.id)}
+                            />
+                            <span className="flex items-center text-red-600">
+                                <HiXCircle className="h-5 w-5 mr-2" />
+                                Reject
+                            </span>
+                        </label>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+})}
+
             </div>
         </div>
     </div>
 )}
+
+{/* Approve Confirmation Modal */}
+{showApproveModal && (
+    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-8 w-full max-w-md rounded-2xl shadow-xl transform transition-all duration-300">
+            {/* Centered Check Icon at the Top */}
+            <div className="flex justify-center mb-6">
+                <HiCheckCircle className="text-green-600 h-16 w-16" />
+            </div>
+
+            {/* Modal Title */}
+            <h2 className="text-2xl font-semibold text-center text-gray-900 mb-4">
+                Confirm Approval
+            </h2>
+
+            {/* Confirmation Message */}
+            <p className="text-lg text-center text-gray-700 mb-6">
+                Are you sure you want to approve this document? This action cannot be undone.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4">
+                <button 
+                    className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-colors w-full md:w-auto" 
+                    onClick={() => setShowApproveModal(false)}
+                >
+                    Cancel
+                </button>
+                <button 
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors w-full md:w-auto" 
+                    onClick={handleConfirmApprove}
+                >
+                    Yes, Approve
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
+{/* Reject Confirmation Modal */}
+{showRejectModal && (
+    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-8 w-full max-w-md rounded-2xl shadow-xl transform transition-all duration-300">
+            {/* Centered X Icon at the Top */}
+            <div className="flex justify-center mb-6">
+                <HiXCircle className="text-red-600 h-16 w-16" />
+            </div>
+
+            {/* Modal Title */}
+            <h2 className="text-2xl font-semibold text-center text-gray-900 mb-4">
+                Reason for Rejection
+            </h2>
+
+            {/* Informational Message */}
+            <p className="text-sm text-gray-600 text-center mb-6">
+                Please provide a reason for rejecting this document. This will help the user understand why their submission was not approved.
+            </p>
+
+            {/* Input for Rejection Reason */}
+            <input
+                type="text"
+                className="w-full p-3 mb-6 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Enter rejection reason"
+                value={rejectionReasonText}
+                onChange={handleRejectionReasonChange}
+            />
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4">
+                <button 
+                    className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-colors w-full md:w-auto" 
+                    onClick={() => setShowRejectModal(false)}
+                >
+                    Cancel
+                </button>
+                <button 
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors w-full md:w-auto" 
+                    onClick={handleConfirmReject}
+                >
+                    Yes, Reject
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+{/* Approve Success Modal */}
+{showApproveSuccessModal && (
+    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-8 w-full max-w-md rounded-2xl shadow-xl transform transition-all duration-300">
+            {/* Centered Check Icon at the Top */}
+            <div className="flex justify-center mb-6">
+                <HiCheckCircle className="text-green-600 h-16 w-16" />
+            </div>
+
+            {/* Modal Title */}
+            <h2 className="text-2xl font-semibold text-center text-gray-900 mb-4">
+                Success!
+            </h2>
+
+            {/* Success Message */}
+            <p className="text-lg text-center text-gray-700 mb-6">
+                {selectedApproval.fileLabel} has been successfully approved!
+            </p>
+
+            {/* Action Button */}
+            <div className="flex justify-center">
+                <button 
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors" 
+                    onClick={() => setShowApproveSuccessModal(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+{/* Reject Success Modal */}
+{showRejectSuccessModal && (
+    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-6 w-full max-w-md rounded-xl shadow-md"> {/* Adjusted width */}
+            {/* Centered X Icon at the Top */}
+            <div className="flex justify-center mb-4">
+                <HiXCircle className="text-red-600 h-12 w-12" /> {/* Slightly smaller Icon */}
+            </div>
+
+            {/* Modal Title */}
+            <h2 className="text-2xl font-semibold text-center text-gray-800 mb-4">
+                Rejected
+            </h2>
+
+            {/* Reject Message */}
+            <p className="text-lg text-center text-gray-700 mb-4">
+                {selectedApproval.fileLabel} has been rejected.
+            </p>
+
+         
+            {/* Reason Card for Rejection */}
+            <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-6 justify-center">
+                <p className="text-lg text-gray-600">{rejectionReasonText}</p>
+            </div>
+
+            {/* Action Button */}
+            <div className="flex justify-center">
+                <button 
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors" 
+                    onClick={() => setShowRejectSuccessModal(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
+
 
 
 {isConfirmModalOpen && (

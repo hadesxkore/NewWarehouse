@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import 'panolens';
+import { HiOutlineExclamationCircle } from 'react-icons/hi';
 
 const DetailView = () => {
     const location = useLocation();
@@ -56,14 +57,29 @@ const DetailView = () => {
     
         return (
             <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-black bg-opacity-50">
-            <div className="bg-white p-8 rounded-lg flex flex-col items-center">
-                <img src={warnIcon} alt="Warning Icon" className="w-12 h-12 mb-4" />
-                <p className="text-lg mb-4">This warehouse is registered under your ownership.</p>
-                <div className="flex justify-center">
-                    <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={onClose}>OK</button>
+                <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full">
+                    {/* Icon at the top center */}
+                    <div className="flex justify-center mb-4">
+                        <HiOutlineExclamationCircle className="text-red-500 text-7xl" />
+                    </div>
+                    {/* Message content */}
+                    <div className="text-center">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Important Notification</h3>
+                        <p className="text-gray-600 mb-6">
+                            This warehouse is registered under your ownership.
+                        </p>
+                    </div>
+                    {/* Action button */}
+                    <div className="flex justify-center">
+                        <button
+                            className="bg-blue-600 text-white px-6 py-2 rounded-xl text-lg font-semibold hover:bg-blue-700 transition"
+                            onClick={onClose}
+                        >
+                            OK
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
         );
     };
     

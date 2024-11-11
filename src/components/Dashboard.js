@@ -10,7 +10,7 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiEye, HiOutlineRefresh, HiX,
+import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiEye, HiOutlineRefresh, HiX, HiXCircle ,
     HiOutlineDocumentText, HiOutlineSave, HiOutlineBan
  } from 'react-icons/hi'; // Import the HiTrash icon
 
@@ -77,9 +77,14 @@ function Dashboard() {
     const [currentFile, setCurrentFile] = useState(''); // State to hold the current file name
     const [userDocuments, setUserDocuments] = useState([]); // Renamed variable
     const [isModalVisible, setIsModalVisible] = useState(false); // Renamed variable
+    const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false);
+const [rejectionMessage, setRejectionMessage] = useState('');
+
     // Inside your component
 const [searchText, setSearchText] = useState('');
 const [suggestions, setSuggestions] = useState([]);
+const [rejectionReasonModalVisible, setRejectionReasonModalVisible] = useState(false);
+const [currentRejectionReason, setCurrentRejectionReason] = useState(""); // Store the rejection reason
 
     const [rentedWarehouses, setRentedWarehouses] = useState([]);
     const [showRentedWarehousesModal, setShowRentedWarehousesModal] = useState(false);
@@ -1226,6 +1231,7 @@ const handleFileRemove = (index) => {
             const warehouseRef = firestore.collection('warehouses').doc();
             await warehouseRef.set({
                 ...warehouseData,
+                category: warehouseData.category, // Added category
                 amenities: selectedAmenities,
                 uploadDate: new Date(),
                 userUid: auth.currentUser.uid, // Set the userUid field
@@ -1239,6 +1245,7 @@ const handleFileRemove = (index) => {
                 address: '',
                 description: '',
                 price: '',
+                category: '',
                 images: [],
                 videos: [],
                 status: 'pending',
@@ -1259,18 +1266,54 @@ const handleFileRemove = (index) => {
         }
     };
 
-   const handleShowDocuments = async () => {
-    const userId = auth.currentUser.uid; // Get the current user's ID
-    const warehousesRef = firestore.collection('warehouses');
-    const querySnapshot = await warehousesRef.where('userUid', '==', userId).get();
+    const handleShowDocuments = async () => {
+        const userId = auth.currentUser.uid; // Get the current user's ID
+        const warehousesRef = firestore.collection('warehouses');
+        const querySnapshot = await warehousesRef.where('userUid', '==', userId).get();
     
-    const docs = querySnapshot.docs.map(doc => {
-        console.log("Fetched document:", { id: doc.id, ...doc.data() }); // Log fetched documents
-        return { id: doc.id, ...doc.data() };
-    });
-    setUserDocuments(docs); // Set user documents
-    setIsModalVisible(true); // Show the modal after fetching documents
-    setIsEditModalOpen(false);
+        const docs = await Promise.all(querySnapshot.docs.map(async (doc) => {
+            console.log("Fetched document:", { id: doc.id, ...doc.data() }); // Log fetched documents
+    
+            const warehouseData = { id: doc.id, ...doc.data() };
+    
+            // Fetch file statuses for the warehouse document
+            const warehouseRef = firestore.collection('warehouses').doc(doc.id);
+            const warehouseDoc = await warehouseRef.get();
+            const fileStatusesFromDb = warehouseDoc.data()?.fileStatuses || [];
+    
+            // Create a map for the file statuses including rejectionReason
+            const fileStatusesMap = fileStatusesFromDb.reduce((acc, file) => {
+                const sanitizedLabel = sanitizeFieldName(file.fileLabel);
+                acc[sanitizedLabel] = {
+                    status: file.status,
+                    rejectionReason: file.rejectionReason, // Add rejectionReason to the map
+                };
+                return acc;
+            }, {});
+    
+            // Add fileStatuses to the warehouse data
+            warehouseData.fileStatuses = fileStatusesMap;
+    
+            return warehouseData;
+        }));
+    
+        setUserDocuments(docs); // Set user documents with file statuses
+        setIsModalVisible(true); // Show the modal after fetching documents
+        setIsEditModalOpen(false);
+    };
+    
+    const handleShowRejectionReason = (rejectionReason) => {
+        setCurrentRejectionReason(rejectionReason); // Set the rejection reason
+        setRejectionReasonModalVisible(true); // Show the rejection reason modal
+    };
+    
+    const handleCloseRejectionReasonModal = () => {
+        setRejectionReasonModalVisible(false); // Close the rejection reason modal
+    };
+    
+// Function to sanitize the file label
+const sanitizeFieldName = (label) => {
+    return label.replace(/[^a-zA-Z0-9]/g, '_'); // Replace non-alphanumeric characters with underscores
 };
 
 const handleResubmitClick = async (item) => {
@@ -1582,7 +1625,7 @@ const confirmMarkAsRented = async () => {
         // Automatically close the success GIF after 1 second
         setTimeout(() => {
             setShowSuccessGif(false);
-        }, 1400); // 1000 milliseconds = 1 second
+        }, 1700); // 1000 milliseconds = 1 second
 
     } catch (error) {
         console.error('Error updating warehouse status:', error);
@@ -1883,10 +1926,10 @@ return (
         <div className="bg-white rounded-lg shadow-md max-w-7xl w-full p-4 overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Upload Warehouse Details</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="flex flex-wrap gap-4">
                     {/* Warehouse Name */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="name">Warehouse Name</label>
+                    <div className="flex-1 min-w-[200px] max-w-[250px]">
+                    <label className="block text-sm font-medium mb-1" htmlFor="name">Warehouse Name</label>
                         <input
                             type="text"
                             id="name"
@@ -1898,8 +1941,8 @@ return (
                         />
                     </div>
                     {/* Address */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="address">Address</label>
+                    <div className="flex-1 min-w-[200px] max-w-[250px]">
+                    <label className="block text-sm font-medium mb-1" htmlFor="address">Address</label>
                         <input
                             type="text"
                             id="address"
@@ -1911,8 +1954,8 @@ return (
                         />
                     </div>
                     {/* Price */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="price">Price</label>
+                    <div className="flex-1 min-w-[200px] max-w-[250px]">
+                    <label className="block text-sm font-medium mb-1" htmlFor="price">Price</label>
                         <input
                             type="number"
                             id="price"
@@ -1937,7 +1980,27 @@ return (
                             required
                         />
                     </div>
-                    {/* Description */}
+                    {/* Warehouse Category Dropdown */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="category">Warehouse Category</label>
+                        <select
+                            id="category"
+                            name="category"
+                            value={warehouseData.category}
+                            onChange={handleWarehouseDataChange}
+                            className="input-field"
+                            required
+                        >
+                            <option value="" disabled>Select Category</option>
+                            <option value="public">Public</option>
+                            <option value="private">Private</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="industrial">Industrial</option>
+                            <option value="specialized">Specialized</option>
+                        </select>
+                    </div>
+                    </div>
+                                        {/* Description */}
                     <div className="col-span-2 lg:col-span-4">
                         <label className="block text-sm font-medium mb-1" htmlFor="description">Description</label>
                         <textarea
@@ -1950,7 +2013,7 @@ return (
                             required
                         ></textarea>
                     </div>
-                </div>
+              
 {/* Upload Images and Videos */}
 <div className="flex items-center justify-start mb-2">
     {/* Upload Images */}
@@ -2401,9 +2464,7 @@ return (
         </div>
     </div>
 )}
-    
-
-    {isModalVisible && (
+{isModalVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
         <div className="bg-white rounded-lg shadow-lg p-6 w-10/12 md:w-1/2 lg:w-1/3">
             <div className="flex items-center justify-center mb-6">
@@ -2415,7 +2476,7 @@ return (
                     <div key={doc.id} className="flex flex-col border rounded-lg p-4 bg-gray-50 shadow-sm w-full">
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">Warehouse: {doc.name}</h3>
                         <div className="space-y-2">
-                            {[
+                            {[ 
                                 { label: "Identification Proof", proof: doc.identificationProof },
                                 { label: "Address Proof", proof: doc.addressProof },
                                 { label: "Ownership Documents", proof: doc.ownershipDocuments },
@@ -2430,7 +2491,7 @@ return (
                                             <HiDocumentText className="text-gray-500 text-lg mr-2" />
                                             <span className="text-gray-700 font-medium">{item.label}</span>
                                         </div>
-                                        <div className="flex items-center">
+                                        <div className="flex items-center justify-center space-x-4 border-l border-gray-300 pl-4">
                                             <button
                                                 className="flex items-center bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition duration-300 text-sm"
                                                 onClick={() => handleViewDocument(item.proof)}
@@ -2438,7 +2499,7 @@ return (
                                                 <HiEye className="mr-1" /> View
                                             </button>
                                             <button
-                                                className="flex items-center bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-300 text-sm ml-2"
+                                                className="flex items-center bg-cyan-600 text-white py-1 px-3 rounded hover:bg-cyan-700 transition duration-300 text-sm ml-2"
                                                 onClick={() => handleResubmitClick({
                                                     id: doc.id,
                                                     label: item.label,
@@ -2447,6 +2508,26 @@ return (
                                             >
                                                 <HiOutlineRefresh className="mr-1" /> Resubmit
                                             </button>
+
+                                            {/* Vertical Divider */}
+                                            <div className="border-l border-gray-300 h-8 mx-4"></div>
+
+                                            {/* Display Status */}
+                                            <div 
+                                                className={`flex items-center justify-center text-sm font-medium ${doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Rejected' ? 'bg-red-600 text-white px-3 py-1 rounded-md cursor-pointer' : doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Approved' ? 'bg-green-600 text-white px-3 py-1 rounded-md' : 'text-gray-600'}`}
+                                                onClick={() => {
+                                                    if (doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Rejected') {
+                                                        handleShowRejectionReason(doc.fileStatuses[sanitizeFieldName(item.label)]?.rejectionReason);
+                                                    }
+                                                }}
+                                            >
+                                                {doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Rejected' ? (
+                                                    <HiXCircle className="mr-2 text-white" />
+                                                ) : doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Approved' ? (
+                                                    <HiCheckCircle className=" text-white" />
+                                                ) : null}
+                                                {doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status || 'Pending'}
+                                            </div>
                                         </div>
                                     </div>
                                 )
@@ -2455,6 +2536,12 @@ return (
                     </div>
                 ))}
             </ul>
+
+            {/* Note about Rejected Documents */}
+            <div className="mt-4 text-sm text-gray-600 italic">
+                If a document is marked as "Rejected," click the button to view the rejection reason.
+            </div>
+
             <div className="mt-6">
                 <button
                     className="flex items-center justify-center w-full bg-red-600 text-white font-semibold py-2 rounded hover:bg-red-700 transition duration-300"
@@ -2466,7 +2553,39 @@ return (
         </div>
     </div>
 )}
- 
+
+
+{/* Rejection Reason Modal */}
+{rejectionReasonModalVisible && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+        <div className="bg-white rounded-lg shadow-lg p-8 w-10/12 md:w-1/3 lg:w-1/4 max-w-md">
+            {/* Icon and Text at the Top Center */}
+            <div className="flex flex-col items-center mb-6">
+                <HiExclamationCircle className="text-red-600 text-5xl mb-2" />
+                <h3 className="text-xl font-semibold text-gray-800">Reason of Rejection</h3>
+            </div>
+
+            {/* Rejection Reason Card */}
+            <div className="bg-gray-100 p-4 rounded-lg shadow-sm mb-6">
+                <p className="text-center text-sm text-gray-800">
+                    {currentRejectionReason || "No reason provided"}
+                </p>
+            </div>
+
+            {/* Close Button */}
+            <div className="flex justify-center">
+                <button
+                    className="bg-red-600 text-white py-2 px-6 rounded hover:bg-red-700 transition duration-300"
+                    onClick={handleCloseRejectionReasonModal}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
+
 
  
  {restrictedResubmitModalVisible && (
@@ -3683,19 +3802,23 @@ return (
                     </div>
                 </div>
             )}
+{/* Success Icon Modal */}
+{showSuccessGif && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-2xl p-8 relative max-w-md"> {/* Increased padding and width */}
+            {/* Icon Section */}
+            <div className="flex justify-center">
+                <HiCheckCircle className="text-green-600 text-8xl" /> {/* Increased icon size */}
+            </div>
+            {/* Text Section */}
+            <div className="text-center mt-6"> {/* Adjusted margin for spacing */}
+                <h2 className="text-xl font-bold text-green-600">Success!</h2> {/* Increased text size */}
+                <p className="text-base">The warehouse has been marked as rented.</p> {/* Adjusted text size */}
+            </div>
+        </div>
+    </div>
+)}
 
-              {/* Success GIF Modal */}
-              {showSuccessGif && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                    <div className="bg-white rounded-lg shadow-2xl p-4 relative max-w-xs">
-                        <img src={successGif} alt="Success" className="w-32 h-32 object-cover mx-auto" />
-                        <div className="text-center mt-2">
-                            <h2 className="text-lg font-bold text-green-600">Success!</h2>
-                            <p className="text-sm">The warehouse has been marked as rented.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
 {/* Error Modal for No Lease Agreement */}
 {showErrorModal && (
     <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center z-50">

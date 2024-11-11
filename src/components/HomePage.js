@@ -41,11 +41,15 @@ import Dashboard from './Dashboard'; // Import the Dashboard component
 import billIcon from '../images/bill.png'; // Import bill icon
 import leaseIcon from '../images/lease.png'; // Import lease icon
 import reportIcon from '../images/problem.png'; // Import report icon
+import { HiSortAscending, HiOutlineFilter, HiHome } from 'react-icons/hi';
+
+
+
 
 
 // Import CSS file for animations
 import './homepage.css';
-const fetchVerifiedWarehouses = async (setVerifiedWarehouses, sortOption, minPrice, maxPrice, selectedAmenity) => {
+const fetchVerifiedWarehouses = async (setVerifiedWarehouses, sortOption, minPrice, maxPrice, selectedAmenity, selectedCategory) => {
     try {
         let warehousesRef = firestore.collection('warehouses')
             .where('status', '==', 'verified');
@@ -58,6 +62,11 @@ const fetchVerifiedWarehouses = async (setVerifiedWarehouses, sortOption, minPri
             if (maxPrice) {
                 warehousesRef = warehousesRef.where('price', '<=', parseFloat(maxPrice));
             }
+        }
+
+        // Filter by selected category
+        if (selectedCategory) {
+            warehousesRef = warehousesRef.where('category', '==', selectedCategory);
         }
 
         const snapshot = await warehousesRef.get();
@@ -86,6 +95,7 @@ const fetchVerifiedWarehouses = async (setVerifiedWarehouses, sortOption, minPri
         console.error('Error fetching verified warehouses:', error);
     }
 };
+
 
 
 // Define your amenities array
@@ -124,7 +134,29 @@ function HomePage() {
     const [showConfirmation, setShowConfirmation] = useState(false); // Define showConfirmation state variable
     const [warehouses, setWarehouses] = useState([]);
     const [selectedAmenity, setSelectedAmenity] = useState('');
-
+    const [selectedCategory, setSelectedCategory] = useState('');
+// Add state for first name and last name
+const [firstName, setFirstName] = useState('');
+const [lastName, setLastName] = useState('');
+   // Effect to check if user is already logged in and retrieve their first name and last name
+   useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            setIsLoggedIn(true);
+            const userRef = firestore.collection('users').doc(user.uid);
+            const userData = await userRef.get();
+            if (userData.exists) {
+                const userDataObj = userData.data();
+                setProfileImage(userDataObj.profileImage || defaultProfileImage);
+                setFirstName(userDataObj.first_name); // Set first name
+                setLastName(userDataObj.last_name); // Set last name
+            }
+        } else {
+            setIsLoggedIn(false);
+        }
+    });
+    return () => unsubscribe();
+}, []);
 
     
     // Effect to check if user is already logged in
@@ -152,8 +184,8 @@ function HomePage() {
 
     
     useEffect(() => {
-        fetchVerifiedWarehouses(setVerifiedWarehouses, sortOption, minPrice, maxPrice, selectedAmenity);
-    }, [sortOption, minPrice, maxPrice, selectedAmenity]);
+        fetchVerifiedWarehouses(setVerifiedWarehouses, sortOption, minPrice, maxPrice, selectedAmenity, selectedCategory);
+    }, [sortOption, minPrice, maxPrice, selectedAmenity, selectedCategory]);
     
     const handleSortChange = (e) => {
         setSortOption(e.target.value);
@@ -236,132 +268,173 @@ function HomePage() {
     return (
         <div style={{ backgroundColor: '#eeeeee', minHeight: '100vh' }}>
             <nav className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 md:p-6" style={{ backgroundColor: '#eeeeee' }}>
-                <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-                    <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-6">
-                        <img src={logo} alt="Logo" className="h-20" />
-                        <div className="flex">
-                            <Link to="/" className="text-lg font-semibold hover:text-gray-300 transition duration-300">Home</Link>
-                            <Link to="/products" className="text-lg font-semibold hover:text-gray-300 transition duration-300 ml-4">Company</Link>
-                            <Link to="/about" className="text-lg font-semibold hover:text-gray-300 transition duration-300 ml-4">About Us</Link>
-                        </div>
-                        <div className="relative">
-                        <Autosuggest
-                            suggestions={suggestions}
-                            onSuggestionsFetchRequested={onSuggestionsFetchRequested}
-                            onSuggestionsClearRequested={onSuggestionsClearRequested}
-                            getSuggestionValue={getSuggestionValue}
-                            renderSuggestion={renderSuggestion}
-                            onSuggestionSelected={onSuggestionSelected}
-                            inputProps={{
-                                placeholder: 'Search for a location',
-                                value,
-                                onChange,
-                                className: 'pl-8 pr-10 py-2 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 text-white focus:outline-none focus:bg-gray-800',
-                            }}
-                        />
-                            <img src={locationIcon} alt="Location" className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4" />
-                            {value && (
-                                <img src={clearIcon} alt="Clear" className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 cursor-pointer" onClick={handleSearchClear} />
-                            )}
-                            {!value && (
-                                <img src={searchIcon} alt="Search" className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 cursor-pointer" />
-                            )}
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-6 pt-2" >
-                        {!isLoggedIn ? (
-                            <>
-                                <Link to="/signup" className="text-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-400 hover:from-blue-600 hover:to-blue-500 text-white px-4 py-2 rounded-lg hover:text-gray-300 transition duration-300">Sign Up</Link>
-                                <Link to="/login" className="text-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-400 hover:from-blue-600 hover:to-blue-500 text-white px-4 py-2 rounded-lg hover:text-gray-300 transition duration-300">Log In</Link>
-                            </>
-                        ) : (
-                            <div className="relative">
-                                <motion.img
-                                    src={profileImage}
-                                    alt="User"
-                                    className="h-12 w-12 cursor-pointer rounded-full"
-                                    onClick={toggleDropdown}
-                                    whileHover={{ scale: 1.1 }}
-                                />
-                                <AnimatePresence>
-                                    {isDropdownOpen && (
-                                        <motion.div
-                                            className={`absolute transform -translate-x-1/2 top-12 mr-5 mt-2 w-48 bg-white rounded-lg shadow-lg overflow-hidden dropdown-menu`}
-                                            style={{ right: '-200%', zIndex: '999' }}
-                                            initial={{ opacity: 0, y: -20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -20 }}
-                                            transition={{ duration: 0.3 }}
-                                        >
-                                            <Link to="/profile" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
-                                                <img src={userProfileIcon} alt="Profile" className="h-6 mr-2 text-black" />
-                                                Profile
-                                            </Link>
-                                            <Link to="/dashboard" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
-                                                <img src={dashboardIcon} alt="Dashboard" className="h-6 mr-2 text-black" />
-                                                Dashboard
-                                            </Link>
-                                        
-                                            <Link to="/rental-agreements" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
-                                                <img src={leaseIcon} alt="Lease" className="h-6 mr-2 text-black" />
-                                                Lease Agreement
-                                            </Link>
-                                            <Link to="/chat" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
-                                            <img src={chatIcon} alt="Chat" className="h-6 mr-2 text-black" />
-                                            Chat
-                                        </Link>
-                                            <div className="border-t border-gray-300"></div>
-                                            <button className="block w-full text-left px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black" onClick={() => setShowConfirmation(true)}>
-                                                <img src={logoutIcon} alt="Logout" className="h-6 mr-2 text-black" />
-                                                Logout
-                                            </button>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        )}
-                 
-                    </div>
-                </div>
-            </nav>
-                {/* Sorting and Price Range Filters */}
-<div className="container mx-auto px-8 py-6">
-    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-        {/* Sort Dropdown */}
-        <select
-            value={sortOption}
-            onChange={handleSortChange}
-            className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out shadow-sm hover:shadow-md"
-        >
-            <option value="">Sort By</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-            <option value="date-added">Date Added</option>
-        </select>
+    <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
+        <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-6">
+            <img src={logo} alt="Logo" className="h-20" />
+            <div className="flex">
+                <Link to="/" className="text-lg font-semibold hover:text-gray-300 transition duration-300">Home</Link>
+                <Link to="/products" className="text-lg font-semibold hover:text-gray-300 transition duration-300 ml-4">Company</Link>
+                <Link to="/about" className="text-lg font-semibold hover:text-gray-300 transition duration-300 ml-4">About Us</Link>
+            </div>
+            <div className="relative">
+                <Autosuggest
+                    suggestions={suggestions}
+                    onSuggestionsFetchRequested={onSuggestionsFetchRequested}
+                    onSuggestionsClearRequested={onSuggestionsClearRequested}
+                    getSuggestionValue={getSuggestionValue}
+                    renderSuggestion={renderSuggestion}
+                    onSuggestionSelected={onSuggestionSelected}
+                    inputProps={{
+                        placeholder: 'Search for a location',
+                        value,
+                        onChange,
+                        className: 'pl-8 pr-10 py-2 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 text-white focus:outline-none focus:bg-gray-800',
+                    }}
+                />
+                <img src={locationIcon} alt="Location" className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4" />
+                {value && (
+                    <img src={clearIcon} alt="Clear" className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 cursor-pointer" onClick={handleSearchClear} />
+                )}
+                {!value && (
+                    <img src={searchIcon} alt="Search" className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 cursor-pointer" />
+                )}
+            </div>
+        </div>
 
-        {/* Amenities Dropdown on the Right */}
-        <div className="ml-auto mt-4 md:mt-0">
-            <h3 className="text-xl font-bold text-gray-800">Amenities:</h3>
-            <select
-                value={selectedAmenity}
-                onChange={(e) => setSelectedAmenity(e.target.value)}
-                className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out shadow-sm hover:shadow-md"
-            >
-                <option value="">Select an Amenity</option>
-                {amenitiesList.map((amenity) => (
-                    <option key={amenity.name} value={amenity.name}>
-                        <div className="flex items-center">
-                            <img src={amenity.icon} alt={amenity.name} className="inline-block w-4 h-4 mr-2" />
-                            {amenity.name}
-                        </div>
-                    </option>
-                ))}
-            </select>
+        <div className="flex items-center space-x-6 pt-2">
+            {/* Display First Name and Last Name Beside the Sign Up / Log In */}
+            <h2 className="text-1xl font-bold hidden md:flex">
+                {firstName || 'Guest'} {lastName || 'Guest'}
+            </h2>
+
+            <div className="flex items-center space-x-6">
+                {!isLoggedIn ? (
+                    <>
+                        <Link to="/signup" className="text-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-400 hover:from-blue-600 hover:to-blue-500 text-white px-4 py-2 rounded-lg hover:text-gray-300 transition duration-300">Sign Up</Link>
+                        <Link to="/login" className="text-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-400 hover:from-blue-600 hover:to-blue-500 text-white px-4 py-2 rounded-lg hover:text-gray-300 transition duration-300">Log In</Link>
+                    </>
+                ) : (
+                    <div className="relative">
+                        <motion.img
+                            src={profileImage}
+                            alt="User"
+                            className="h-12 w-12 cursor-pointer rounded-full"
+                            onClick={toggleDropdown}
+                            whileHover={{ scale: 1.1 }}
+                        />
+                        <AnimatePresence>
+                            {isDropdownOpen && (
+                                <motion.div
+                                    className={`absolute transform -translate-x-1/2 top-12 mr-5 mt-2 w-48 bg-white rounded-lg shadow-lg overflow-hidden dropdown-menu`}
+                                    style={{ right: '-200%', zIndex: '999' }}
+                                    initial={{ opacity: 0, y: -20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    <Link to="/profile" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
+                                        <img src={userProfileIcon} alt="Profile" className="h-6 mr-2 text-black" />
+                                        Profile
+                                    </Link>
+
+                                    <Link to="/dashboard" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
+                                        <img src={dashboardIcon} alt="Dashboard" className="h-6 mr-2 text-black" />
+                                        Dashboard
+                                    </Link>
+                                    
+                                    <Link to="/rental-agreements" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
+                                        <img src={leaseIcon} alt="Lease" className="h-6 mr-2 text-black" />
+                                        Lease Agreement
+                                    </Link>
+                                    <Link to="/chat" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
+                                        <img src={chatIcon} alt="Chat" className="h-6 mr-2 text-black" />
+                                        Chat
+                                    </Link>
+                                    <div className="border-t border-gray-300"></div>
+                                    <button className="block w-full text-left px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black" onClick={() => setShowConfirmation(true)}>
+                                        <img src={logoutIcon} alt="Logout" className="h-6 mr-2 text-black" />
+                                        Logout
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                )}
+            </div>
         </div>
     </div>
+</nav>
+
+
+     {/* Filters Section */}
+<div className="container mx-auto px-6 py-8 bg-white shadow-xl rounded-3xl max-w-6xl">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    
+    {/* Sort Dropdown */}
+    <div className="flex flex-col">
+      <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+        <HiSortAscending className="mr-2 text-blue-500" /> Sort By:
+      </label>
+      <select
+        value={sortOption}
+        onChange={handleSortChange}
+        className="w-full px-4 py-3 rounded-xl bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition duration-300 ease-in-out hover:bg-gray-200 text-gray-800 text-base"
+      >
+        <option value="">Choose Sorting</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="date-added">Date Added</option>
+      </select>
+    </div>
+
+    {/* Category Dropdown */}
+    <div className="flex flex-col">
+      <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+        <HiOutlineFilter className="mr-2 text-blue-500" /> Category:
+      </label>
+      <select
+        value={selectedCategory}
+        onChange={(e) => setSelectedCategory(e.target.value)}
+        className="w-full px-4 py-3 rounded-xl bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition duration-300 ease-in-out hover:bg-gray-200 text-gray-800 text-base"
+      >
+        <option value="">All Categories</option>
+        <option value="public">Public</option>
+        <option value="private">Private</option>
+        <option value="commercial">Commercial</option>
+        <option value="industrial">Industrial</option>
+        <option value="specialized">Specialized</option>
+      </select>
+    </div>
+
+    {/* Amenities Dropdown */}
+    <div className="flex flex-col">
+      <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+        <HiHome className="mr-2 text-blue-500" /> Amenities:
+      </label>
+      <select
+        value={selectedAmenity}
+        onChange={(e) => setSelectedAmenity(e.target.value)}
+        className="w-full px-4 py-3 rounded-xl bg-gray-100 border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition duration-300 ease-in-out hover:bg-gray-200 text-gray-800 text-base"
+      >
+        <option value="">Select an Amenity</option>
+        {amenitiesList.map((amenity) => (
+          <option key={amenity.name} value={amenity.name}>
+            {amenity.name}
+          </option>
+        ))}
+      </select>
+    </div>
+    
+  </div>
+  {/* Display message when no warehouses are available for the selected category */}
+  {verifiedWarehouses.length === 0 && selectedCategory && (
+    <div className="mt-4 text-center text-red-500 font-semibold">
+      No warehouses available for this category.
+    </div>
+  )}
 </div>
 
-
+ 
 
        {/* Display selected warehouse data */}
        {selectedWarehouse ? (

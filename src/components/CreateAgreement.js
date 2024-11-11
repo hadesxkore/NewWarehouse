@@ -106,6 +106,14 @@ const handleChange = (e) => {
         checkUserWarehouses();
     }, []);
     
+     // Check if the agreement duration is less than 6 months
+     const isDurationLessThanSixMonths = () => {
+        const { start_date, end_date } = formData;
+        const months = calculateMonthDifference(start_date, end_date);
+        return months < 6;
+    };
+
+
    const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -120,6 +128,12 @@ const handleChange = (e) => {
                 // Display an error message if the user hasn't uploaded any warehouses
                 setError('Rental agreements can only be created by lessors who have uploaded warehouses.');
                 setShowErrorModal(true); // Show modal
+                return;
+            }
+             // Validate the duration
+             if (isDurationLessThanSixMonths()) {
+                setError('The rental agreement must be at least 6 months long.');
+                setShowErrorModal(true);
                 return;
             }
 
@@ -187,6 +201,8 @@ const handleChange = (e) => {
         setShowErrorModal(true); // Show modal
     }
 };
+
+
 useEffect(() => {
     const checkUserWarehouses = async () => {
         try {
@@ -426,28 +442,40 @@ const handleSaveTerms = async () => {
 
 
 
-                    {/* Error Modal */}
-                    {showErrorModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden overflow-y-auto outline-none focus:outline-none">
-                            <div className="absolute inset-0 bg-gray-800 opacity-75"></div>
-                            <div className="relative w-auto max-w-md p-5 mx-auto my-6 bg-white rounded-lg shadow-lg">
-                                {/* Content */}
-                                <div className="text-center">
-                                <div className="flex flex-col items-center">
-                                <img src={error1} alt="Error Icon" className="w-14 h-14 mb-2" />
-            </div>
+            {/* Error Modal */}
+{showErrorModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden overflow-y-auto outline-none focus:outline-none">
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gray-800 opacity-75"></div>
 
-                                    <p className="text-gray-700 mb-2 mt-2">{error}</p>
-                                    <button
-                                        className="bg-red-500 text-white font-semibold py-2 px-8 rounded hover:bg-red-600 mt-4"
-                                        onClick={() => setShowErrorModal(false)}
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+        {/* Modal Content */}
+        <div className="relative w-auto max-w-md p-5 mx-auto my-6 bg-white rounded-lg shadow-lg">
+            {/* Modal Body */}
+            <div className="text-center">
+                {/* Error Icon */}
+                <div className="flex flex-col items-center">
+                    <img 
+                        src={error1} 
+                        alt="Error Icon" 
+                        className="w-14 h-14 mb-2" 
+                    />
+                </div>
+
+                {/* Error Message */}
+                <p className="text-gray-700 mb-2 mt-2">{error}</p>
+
+                {/* Close Button */}
+                <button
+                    className="bg-red-500 text-white font-semibold py-2 px-8 rounded hover:bg-red-600 mt-4"
+                    onClick={() => setShowErrorModal(false)}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
                 </div>
             </div>
         </div>

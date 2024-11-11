@@ -7,6 +7,8 @@ const WarehouseCard = ({ warehouse }) => {
     const [uploaderInfo, setUploaderInfo] = useState(null);
     const [truncatedDescription, setTruncatedDescription] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('');
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -72,6 +74,9 @@ const WarehouseCard = ({ warehouse }) => {
                 </div>
                 <p className="text-gray-700 mb-4">
                     <span className="font-bold">Price:</span> ₱{warehouse.price}
+                </p>
+                <p className="text-gray-700 mb-4">
+                    <span className="font-bold">Category:</span> {warehouse.category}
                 </p>
                 <p className="text-gray-700 mb-4">
                     <span className="font-bold">Created by:</span> {uploaderInfo ? `${uploaderInfo.first_name} ${uploaderInfo.last_name} (${uploaderInfo.contact_number})` : 'Unknown'}
