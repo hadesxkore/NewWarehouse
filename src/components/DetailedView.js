@@ -22,7 +22,7 @@ import * as THREE from 'three';
 import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import 'panolens';
-import { HiOutlineExclamationCircle } from 'react-icons/hi';
+import { HiOutlineExclamationCircle, HiQuestionMarkCircle  } from 'react-icons/hi';
 
 const DetailView = () => {
     const location = useLocation();
@@ -262,15 +262,36 @@ const handleCloseModal = () => {
         if (!show) return null;
 
         return (
-            <div className="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-black bg-opacity-50">
-                <div className="bg-white p-8 rounded-lg">
-                    <p className="text-xl mb-4">Are you sure you want to rent this warehouse?</p>
-                    <div className="flex justify-end">
-                        <button className="bg-red-500 text-white px-4 py-2 rounded mr-4" onClick={() => onClose(false)}>Cancel</button>
-                        <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={() => onClose(true)}>Confirm</button>
-                    </div>
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
+            {/* Modal Container */}
+            <div className="bg-white w-80 p-6 rounded-2xl shadow-lg transform transition-all duration-300 ease-in-out">
+                {/* Icon at the Top Center */}
+                <div className="flex justify-center mb-4">
+                    <HiQuestionMarkCircle className="text-blue-500 w-16 h-16" />
+                </div>
+        
+                {/* Confirmation Message */}
+                <p className="text-center text-gray-900 text-lg font-semibold mb-6">
+                    Are you sure you want to rent this warehouse?
+                </p>
+        
+                {/* Action Buttons */}
+                <div className="flex justify-center space-x-4">
+                    <button
+                        className="w-28 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-all duration-300"
+                        onClick={() => onClose(false)}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        className="w-28 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-all duration-300"
+                        onClick={() => onClose(true)}
+                    >
+                        Confirm
+                    </button>
                 </div>
             </div>
+        </div>
         );
     };
     

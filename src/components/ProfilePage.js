@@ -6,6 +6,7 @@ import 'firebase/compat/auth'; // Import auth module
 import 'firebase/compat/firestore'; // Import firestore module
 import { motion } from 'framer-motion';
 import error1 from '../images/error1.png';
+import { HiOutlineQuestionMarkCircle, HiCheckCircle  } from "react-icons/hi"
 
 import defaultProfileImage from '../images/default-profile-image.png';
 // Import CSS file for animations
@@ -751,28 +752,67 @@ const handleProfileImageChange = (e) => {
         </div>
     
                     </form>
+
                     {successMessage && (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 success-popup">
-        <div className="bg-white p-8 rounded-lg justify-center">
-            <img src={checkedIcon} alt="Checked" className="h-10 mx-auto mb-4" />
-            <p className="text-green-500 text-lg justify-center">{successMessage}</p>
-            <button className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-8 rounded mt-5 ml-16" onClick={() => setSuccessMessage('')}>OK</button>
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-60">
+        {/* Modal Content */}
+        <div className="bg-white w-80 p-6 rounded-2xl shadow-2xl transform transition-all duration-300 ease-in-out">
+            {/* Icon at the Top Center */}
+            <div className="flex justify-center mb-4">
+                <HiCheckCircle className="text-green-500 w-16 h-16" />
+            </div>
+
+            {/* Success Message */}
+            <p className="text-center text-gray-900 text-lg font-semibold mb-6">
+                {successMessage}
+            </p>
+
+            {/* OK Button */}
+            <div className="flex justify-center">
+                <button
+                    className="w-32 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg shadow-md transition-all duration-300"
+                    onClick={() => setSuccessMessage('')}
+                >
+                    OK
+                </button>
+            </div>
         </div>
     </div>
 )}
 
-                    {showSaveConfirmation && (
-                        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-                            <div className="bg-white p-8 rounded-lg">
-                                <p className="text-gray-700 text-lg">Are you sure you want to save this?</p>
-                                <div className="flex justify-center mt-4 ">
-                                    <button className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-4" onClick={handleSaveConfirmation}>Yes</button>
-                                    <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setShowSaveConfirmation(false)}>No</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
+{showSaveConfirmation && (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-60">
+        {/* Modal Content */}
+        <div className="bg-white w-96 p-8 rounded-2xl shadow-2xl transform transition-all duration-300 ease-in-out">
+            {/* Icon at the Top Center */}
+            <div className="flex justify-center mb-4">
+                <HiOutlineQuestionMarkCircle className="text-blue-500 w-16 h-16" />
+            </div>
+
+            {/* Confirmation Message */}
+            <p className="text-gray-900 text-center text-lg font-medium mb-6">
+                Are you sure you want to proceed with saving this data?
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-6">
+                
+                <button
+                    className="w-32 bg-red-500 hover:bg-red-400 text-white font-semibold py-2 rounded-lg shadow-md transition-all duration-300"
+                    onClick={() => setShowSaveConfirmation(false)}
+                >
+                    Cancel
+                </button>
+                <button
+                    className="w-32 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg shadow-md transition-all duration-300"
+                    onClick={handleSaveConfirmation}
+                >
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+)}
                      
                      {showConfirmation && (
                 <motion.div
