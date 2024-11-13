@@ -25,8 +25,11 @@ function CreateAgreement() {
         rentAmount: initialFormData.price || '', // Initialize with existing data
         rentFrequency: 'monthly',
         depositAmount: '',
-        terms: ''
+        terms: '',
+        lessorTinNumber: initialFormData.owner ? initialFormData.owner.tinNumber : '',  // Access the tinNumber from the owner object
+        lesseeTinNumber: initialFormData.rentedBy ? initialFormData.rentedBy.tinNumber : ''  // Assuming you have this in the rentedBy data
     });
+    
 
     useEffect(() => {
         if (initialFormData) {
@@ -271,6 +274,7 @@ const handleSaveTerms = async () => {
         // Handle error state
     }
 };
+
     return (
         <div className="flex flex-col min-h-screen">
             <Navbar />
@@ -279,31 +283,94 @@ const handleSaveTerms = async () => {
                 <div className="flex-grow p-8">
                     <h2 className="text-4xl font-semibold mb-8 mt-4 text-center">Create New Rental Agreement</h2>
                     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8">
+                     
                         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                            <div className="flex flex-col">
-                                <label className="text-gray-700 mb-2">Lessor Name</label>
-                                <input
-                                    type="text"
-                                    name="lessorName"
-                                    value={formData.lessorName}
-                                    onChange={handleChange}
-                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                            </div>
-                            
-                            <div className="flex flex-col">
-                                <label className="text-gray-700 mb-2">Lessee Name</label>
-                                <input
-                                    type="text"
-                                    name="lesseeName"
-                                    value={formData.lesseeName}
-                                    onChange={handleChange}
-                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                            </div>
-                        </div>
+    {/* Lessor Name and Lessor TIN Number */}
+    <div className="flex flex-col">
+        <label className="text-gray-700 mb-2">Lessor Name</label>
+        <input
+            type="text"
+            name="lessorName"
+            value={formData.lessorName}
+            onChange={handleChange}
+            className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500 w-full"
+            required
+        />
+        
+        <label className="text-gray-700 mt-4 mb-2">Lessor TIN Number</label>
+<input
+    type="text"
+    name="lessorTinNumber"
+    value={formData.lessorTinNumber}
+    onChange={(e) => {
+        // Allow only numbers and hyphens, and automatically format TIN as 'XXX-XXX-XXX'
+        const value = e.target.value.replace(/[^\d-]/g, ''); // Remove non-digit and non-hyphen characters
+        let formattedValue = value;
+
+        // Insert hyphens at the appropriate positions if the length is correct
+        if (formattedValue.length > 3 && formattedValue.length <= 6) {
+            formattedValue = `${formattedValue.slice(0, 3)}-${formattedValue.slice(3)}`;
+        } else if (formattedValue.length > 6 && formattedValue.length <= 9) {
+            formattedValue = `${formattedValue.slice(0, 3)}-${formattedValue.slice(3, 6)}-${formattedValue.slice(6)}`;
+        }
+
+        if (formattedValue.length <= 11) {
+            setFormData({
+                ...formData,
+                lessorTinNumber: formattedValue,
+            });
+        }
+    }}
+    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500 w-full"
+    required
+    maxLength={11} // Allow a maximum of 11 characters (including hyphens)
+/>
+    </div>
+    
+    {/* Lessee Name and Lessee TIN Number */}
+    <div className="flex flex-col">
+        <label className="text-gray-700 mb-2">Lessee Name</label>
+        <input
+            type="text"
+            name="lesseeName"
+            value={formData.lesseeName}
+            onChange={handleChange}
+            className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500 w-full"
+            required
+        />
+
+<label className="text-gray-700 mt-4 mb-2">Lessee TIN Number</label>
+<input
+    type="text"
+    name="lesseeTinNumber"
+    value={formData.lesseeTinNumber}
+    onChange={(e) => {
+        // Allow only numbers and hyphens, and automatically format TIN as 'XXX-XXX-XXX'
+        const value = e.target.value.replace(/[^\d-]/g, ''); // Remove non-digit and non-hyphen characters
+        let formattedValue = value;
+
+        // Insert hyphens at the appropriate positions if the length is correct
+        if (formattedValue.length > 3 && formattedValue.length <= 6) {
+            formattedValue = `${formattedValue.slice(0, 3)}-${formattedValue.slice(3)}`;
+        } else if (formattedValue.length > 6 && formattedValue.length <= 9) {
+            formattedValue = `${formattedValue.slice(0, 3)}-${formattedValue.slice(3, 6)}-${formattedValue.slice(6)}`;
+        }
+
+        if (formattedValue.length <= 11) {
+            setFormData({
+                ...formData,
+                lesseeTinNumber: formattedValue,
+            });
+        }
+    }}
+    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500 w-full"
+    required
+    maxLength={11} // Allow a maximum of 11 characters (including hyphens)
+/>
+    </div>
+</div>
+
+
                         <div className="flex flex-col">
                             <label className="text-gray-700 mb-2">Warehouse Name</label>
                             <input
@@ -414,6 +481,7 @@ const handleSaveTerms = async () => {
                             Create Agreement
                         </button>
                     </form>
+
                     {showEditModal && hasUploadedWarehouses && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
         <div className="bg-white p-8 rounded-md shadow-md max-w-screen-lg w-full mx-4">

@@ -200,22 +200,41 @@ const handleCloseModal = () => {
                 const unsubscribe = auth.onAuthStateChanged(async (user) => {
                     if (user && warehouse) {
                         try {
+                            // Fetch the lessee's data (the current user)
                             const userDoc = await firestore.collection('users').doc(user.uid).get();
                             const userData = userDoc.data();
                             console.log('User data:', userData); // Log user data here
+                            
                             if (userData) {
-                                const { first_name, last_name } = userData; // Adjust field names here
+                                const { first_name, last_name, tin_number } = userData; // Destructure the TIN number along with first and last name
                                 console.log('First Name:', first_name); // Log first name here
                                 console.log('Last Name:', last_name); // Log last name here
+                                console.log('TIN Number:', tin_number); // Log TIN number here
                                 
-                                // Retrieve the ownerUid from the warehouse data
+                                // Retrieve the ownerUid (lessor's UID) from the warehouse data
                                 const ownerUid = warehouse.userUid || warehouse.id;
                                 
                                 if (!ownerUid) {
                                     throw new Error('Owner UID is undefined');
                                 }
+    
+                                // Fetch the owner's (lessor's) data using ownerUid
+                                const ownerDoc = await firestore.collection('users').doc(ownerUid).get();
+                                const ownerData = ownerDoc.data();
+                                console.log('Owner data:', ownerData); // Log owner data here
                                 
-                                const rentedWarehouseRef = await firestore.collection('rentedWarehouses').doc();    
+                                if (!ownerData) {
+                                    throw new Error('Owner data is missing or incomplete');
+                                }
+    
+                                // Destructure owner's TIN number
+                                const { first_name: ownerFirstName, last_name: ownerLastName, tin_number: ownerTinNumber } = ownerData;
+                                console.log('Owner First Name:', ownerFirstName); // Log owner first name
+                                console.log('Owner Last Name:', ownerLastName); // Log owner last name
+                                console.log('Owner TIN Number:', ownerTinNumber); // Log owner TIN number
+    
+                                // Now store both the lessee and lessor TIN numbers in the rented warehouse
+                                const rentedWarehouseRef = await firestore.collection('rentedWarehouses').doc();
                                 await rentedWarehouseRef.set({
                                     warehouseId: rentedWarehouseRef.id,
                                     userUid: user.uid,
@@ -226,6 +245,12 @@ const handleCloseModal = () => {
                                         userId: user.uid,
                                         firstName: first_name || '',
                                         lastName: last_name || '',
+                                        tinNumber: tin_number || '', // Store the user's (lessee's) TIN number
+                                    },
+                                    owner: {
+                                        firstName: ownerFirstName || '',
+                                        lastName: ownerLastName || '',
+                                        tinNumber: ownerTinNumber || '', // Store the owner's (lessor's) TIN number
                                     },
                                     amenities: warehouse.amenities,
                                     name: warehouse.name,
@@ -236,6 +261,7 @@ const handleCloseModal = () => {
                                     ownerFirstName: uploaderInfo ? uploaderInfo.first_name : '',
                                     ownerLastName: uploaderInfo ? uploaderInfo.last_name : '',
                                 });
+    
                                 navigate('/dashboard');
                             } else {
                                 console.error('Error storing rented warehouse: User data is missing or incomplete');
@@ -255,7 +281,7 @@ const handleCloseModal = () => {
         }
         setShowConfirmationModal(false);
     };
-
+    
     
 
     const ConfirmationModal = ({ show, onClose }) => {

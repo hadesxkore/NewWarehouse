@@ -6,7 +6,7 @@ import googleIcon from '../images/google.png';
 import { auth, GoogleAuthProvider } from '../firebase';
 import backIcon from '../images/back.png'; // Import the back icon image
 import './LoginPage.css';
-
+import { HiOutlineExclamationCircle } from 'react-icons/hi';
 function LoginPage() {
     const navigate = useNavigate(); // Initialize useNavigate
 
@@ -69,7 +69,7 @@ function LoginPage() {
                 setShowErrorMessage(true);
             } else {
                 // For other errors, display the error message returned by Firebase
-                setErrorMessage(error.message);
+                setErrorMessage('The password or email you entered is incorrect.');
                 setShowErrorMessage(true);
             }
         } finally {
@@ -110,15 +110,36 @@ function LoginPage() {
                 transition={{ duration: 0.5 }} // Animation duration
             >
                 <h2 className="text-4xl font-bold mb-6 text-left">Log in</h2>
+
                 {showErrorMessage && (
-    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 flex items-center justify-between">
-        <div>
-            <strong className="font-bold">Verification Required:</strong>
-            <span className="block sm:inline"> {errorMessage}</span>
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-6 rounded-2xl shadow-lg max-w-sm w-full transition-transform duration-300 ease-in-out">
+            {/* Close Button */}
+            <button
+                className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-2xl"
+                onClick={() => setShowErrorMessage(false)}
+            >
+                &times;
+            </button>
+
+            {/* Icon and Message */}
+            <div className="flex flex-col items-center">
+                <HiOutlineExclamationCircle className="text-red-500 w-14 h-14 mb-4" />
+                <p className="text-center text-gray-800 text-lg font-semibold">
+                    <strong className="font-bold"></strong> {errorMessage}
+                </p>
+            </div>
+
+            {/* OK Button */}
+            <div className="flex justify-center mt-6">
+                <button
+                    className="w-28 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-all duration-300"
+                    onClick={() => setShowErrorMessage(false)}
+                >
+                    OK
+                </button>
+            </div>
         </div>
-        <button onClick={() => setShowErrorMessage(false)} className="ml-4">
-            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 5.652a1 1 0 0 1 1.414 1.414L11.414 10l4.348 4.348a1 1 0 1 1-1.414 1.414L10 11.414l-4.348 4.348a1 1 0 1 1-1.414-1.414L8.586 10 4.238 5.652A1 1 0 1 1 5.652 4.238L10 8.586l4.348-4.348a1 1 0 0 1 1.414 0z"/></svg>
-        </button>
     </div>
 )}
 

@@ -238,6 +238,7 @@ const getMaxBirthdate = () => {
         birthdate: '',
         address: '',
         contact_number: '',
+        tin_number:'',
         email: ''
     });
     const maxBirthdate = getMaxBirthdate(); // Calculate max birthdate for 18+
@@ -248,6 +249,7 @@ const getMaxBirthdate = () => {
         birthdate: false,
         address: false,
         contact_number: false,
+        tin_number:'',
         email: false
     });
     const [currentPassword, setCurrentPassword] = useState('');
@@ -363,6 +365,7 @@ const getMaxBirthdate = () => {
                         birthdate: '',
                         address: '',
                         contact_number: '',
+                        tin_number:'',
                         email: user.email
                     });
                 }
@@ -388,6 +391,7 @@ const getMaxBirthdate = () => {
                         birthdate: '',
                         address: '',
                         contact_number: '',
+                        tin_number:'',
                         email: user.email
                     });
                 }
@@ -443,6 +447,7 @@ const getMaxBirthdate = () => {
             birthdate: e.target.birthdate.value,
             address: e.target.address.value,
             contact_number: e.target.contact_number.value,
+            tin_number:e.target.tin_number.value,
             email: e.target.email.value,
             profileImage: profileImage
         });
@@ -492,6 +497,7 @@ const handleProfileImageChange = (e) => {
                     birthdate: false,
                     address: false,
                     contact_number: false,
+                    tin_number: false,
                     email: false,
                     profileImage:false
                 });
@@ -674,6 +680,61 @@ const handleProfileImageChange = (e) => {
         )}
     </div>
 </div>
+
+{/* TIN Number */}
+<div className="mb-6">
+    <label htmlFor="tin_number" className="block text-gray-700 mb-1">TIN Number:</label>
+    <div className="relative">
+        <input
+            type="text"
+            id="tin_number"
+            name="tin_number"
+            value={formData.tin_number}
+            onChange={(e) => {
+                let input = e.target.value;
+
+                // Remove any non-numeric characters
+                input = input.replace(/\D/g, '');
+
+                // Ensure that the TIN number doesn't exceed 9 digits
+                if (input.length > 9) {
+                    input = input.slice(0, 9);
+                }
+
+                // Add hyphens after every 3 digits, only if we have 3 digits
+                if (input.length > 3 && input.length <= 6) {
+                    input = input.replace(/(\d{3})(?=\d)/g, '$1-');
+                } else if (input.length > 6) {
+                    input = input.replace(/(\d{3})(?=\d)/g, '$1-');
+                }
+
+                // Update the state with the formatted input
+                setFormData(prevData => ({
+                    ...prevData,
+                    tin_number: input
+                }));
+            }}
+            onKeyDown={(e) => {
+                // Prevent non-numeric characters (including letters) from being typed
+                if (!/[0-9]/.test(e.key) && e.key !== "Backspace" && e.key !== "Tab" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") {
+                    e.preventDefault(); // Prevent default action (typing the letter)
+                }
+            }}
+            className={`form-input pl-3 py-2 rounded-md w-full ${editMode.tin_number ? 'bg-gray-100' : 'bg-gray-300'}`}
+            disabled={!editMode.tin_number}
+            maxLength="11" // Allow for 9 digits and 2 hyphens (max of 11 characters)
+            placeholder="Enter TIN"
+        />
+        {!editMode.tin_number ? (
+            <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-500 hover:text-blue-700" onClick={(e) => handleEdit('tin_number', e)}>Edit</button>
+        ) : (
+            <button className="absolute right-4 top-1/2 transform -translate-y-1/2 text-red-500 hover:text-red-700" onClick={(e) => handleEdit('tin_number', e)}>Cancel</button>
+        )}
+    </div>
+</div>
+
+
+
 
                         <div className="mb-6">
     <label htmlFor="email" className="block text-gray-700 mb-1">Email:</label>

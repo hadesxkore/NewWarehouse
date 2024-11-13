@@ -215,67 +215,76 @@ function RentalAgreements() {
                     <p className="text-lg mb-4 text-left ml-10 mt-4">Total Agreements: {agreementsCount}</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ml-10">
-                        {rentalAgreements.map(agreement => (
-                            <div key={agreement.id} className="rounded-lg overflow-hidden shadow-md bg-white">
-                                <div className="p-6">
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
-                                        <div className="bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Lessor Name:</p>
-                                            <p className="text-gray-700">{agreement.lessorName}</p>
-                                        </div>
-                                        <div className="bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Lessee Name:</p>
-                                            <p className="text-gray-700">{agreement.lesseeName}</p>
-                                        </div>
-                                        <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Warehouse Name:</p>
-                                            <p className="text-gray-700">{agreement.warehouseName}</p>
-                                        </div>
-                                        <div className="bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Start Date:</p>
-                                            <p className="text-gray-700">{new Date(agreement.start_date).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">End Date:</p>
-                                            <p className="text-gray-700">{new Date(agreement.end_date).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Rent Amount:</p>
-                                            <p className="text-gray-700">₱{agreement.rentAmount} {agreement.rentFrequency}</p>
-                                        </div>
-                                        <div className="bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Deposit Amount:</p>
-                                            <p className="text-gray-700">₱{agreement.depositAmount}</p>
-                                        </div>
-                                        <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
-                                            <p className="text-gray-900 text-lg font-semibold">Terms:</p>
-                                            <p className="text-gray-700">{agreement.terms.length > 55 ? `${agreement.terms.slice(0, 55)}...` : agreement.terms}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-center">
-                                        <button
-                                            onClick={() => handleViewClick(agreement)}
-                                            className="bg-blue-500 text-white rounded-md px-6 py-2 mr-2 hover:bg-blue-600 transition duration-300"
-                                        >
-                                            View
-                                        </button>
-                                        <button
-                                            onClick={handleConvertToWord}
-                                            className="bg-green-500 text-white rounded-md px-6 py-2 mr-2 hover:bg-green-600 transition duration-300"
-                                        >
-                                            Convert to Word
-                                        </button>
-                                        <button
-                                            onClick={() => showConfirmDeleteModal(agreement.id)}
-                                            className="bg-red-500 text-white rounded-md px-6 py-2 hover:bg-red-600 transition duration-300"
-                                        >
-                                            Terminate
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+    {rentalAgreements.map(agreement => (
+        <div key={agreement.id} className="rounded-lg overflow-hidden shadow-md bg-white">
+            <div className="p-6">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Lessor Name:</p>
+                        <p className="text-gray-700">{agreement.lessorName}</p>
                     </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Lessee Name:</p>
+                        <p className="text-gray-700">{agreement.lesseeName}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Lessor TIN Number:</p>
+                        <p className="text-gray-700">{agreement.lessorTinNumber}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Lessee TIN Number:</p>
+                        <p className="text-gray-700">{agreement.lesseeTinNumber}</p>
+                    </div>
+                    <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Warehouse Name:</p>
+                        <p className="text-gray-700">{agreement.warehouseName}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Start Date:</p>
+                        <p className="text-gray-700">{new Date(agreement.start_date).toLocaleDateString()}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">End Date:</p>
+                        <p className="text-gray-700">{new Date(agreement.end_date).toLocaleDateString()}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Rent Amount:</p>
+                        <p className="text-gray-700">₱{agreement.rentAmount} {agreement.rentFrequency}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Deposit Amount:</p>
+                        <p className="text-gray-700">₱{agreement.depositAmount}</p>
+                    </div>
+                    <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
+                        <p className="text-gray-900 text-lg font-semibold">Terms:</p>
+                        <p className="text-gray-700">{agreement.terms.length > 55 ? `${agreement.terms.slice(0, 55)}...` : agreement.terms}</p>
+                    </div>
+                </div>
+                <div className="flex justify-center">
+                    <button
+                        onClick={() => handleViewClick(agreement)}
+                        className="bg-blue-500 text-white rounded-md px-6 py-2 mr-2 hover:bg-blue-600 transition duration-300"
+                    >
+                        View
+                    </button>
+                    <button
+                        onClick={handleConvertToWord}
+                        className="bg-green-500 text-white rounded-md px-6 py-2 mr-2 hover:bg-green-600 transition duration-300"
+                    >
+                        Convert to Word
+                    </button>
+                    <button
+                        onClick={() => showConfirmDeleteModal(agreement.id)}
+                        className="bg-red-500 text-white rounded-md px-6 py-2 hover:bg-red-600 transition duration-300"
+                    >
+                        Terminate
+                    </button>
+                </div>
+            </div>
+        </div>
+    ))}
+</div>
+
                     {confirmDeleteVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full">
@@ -403,7 +412,6 @@ function RentalAgreements() {
     </div>
 )}
 
-
 {modalVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
         <div className="absolute inset-0 flex items-center justify-center z-60">
@@ -424,15 +432,23 @@ function RentalAgreements() {
                     </div>
                 </div>
 
-                {/* Lessor and Lessee Names */}
+                {/* Lessor and Lessee Names with TIN Numbers */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="flex justify-between">
                         <p className="font-semibold text-sm">Lessor Name:</p>
                         <p className="text-sm">{selectedAgreement?.lessorName}</p>
                     </div>
                     <div className="flex justify-between">
+                        <p className="font-semibold text-sm">Lessor TIN:</p>
+                        <p className="text-sm">{selectedAgreement?.lessorTinNumber}</p> {/* TIN of the lessor */}
+                    </div>
+                    <div className="flex justify-between">
                         <p className="font-semibold text-sm">Lessee Name:</p>
                         <p className="text-sm">{selectedAgreement?.lesseeName}</p>
+                    </div>
+                    <div className="flex justify-between">
+                        <p className="font-semibold text-sm">Lessee TIN:</p>
+                        <p className="text-sm">{selectedAgreement?.lesseeTinNumber}</p> {/* TIN of the lessee */}
                     </div>
                 </div>
 
@@ -496,6 +512,7 @@ function RentalAgreements() {
         </div>
     </div>
 )}
+
 
                     {successMessage && (
                         <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-lg shadow-md">

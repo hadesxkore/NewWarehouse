@@ -1,54 +1,61 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate hook
+import { useNavigate } from 'react-router-dom';
 import { auth, firestore } from '../firebase';
-import error1 from '../images/error1.png';
+import { HiOutlineExclamationCircle } from 'react-icons/hi';
 import './SuperadminLogin.css';
 
 function SuperadminLogin() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [modalMessage, setModalMessage] = useState(''); // State to hold modal message
-    const navigate = useNavigate(); // Initialize useNavigate
+    const [modalMessage, setModalMessage] = useState('');
+    const navigate = useNavigate();
 
     const handleEmailChange = (e) => setEmail(e.target.value);
     const handlePasswordChange = (e) => setPassword(e.target.value);
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); // Prevent default form submission
-
+        e.preventDefault();
+    
         try {
-            // Sign in with email and password
             const { user } = await auth.signInWithEmailAndPassword(email, password);
-
-            // Fetch additional details from Firestore
             const superadminRef = firestore.collection('superadmins').doc(user.uid);
             const superadminSnapshot = await superadminRef.get();
-
+    
             if (superadminSnapshot.exists) {
                 const superadminData = superadminSnapshot.data();
                 if (superadminData.role === 'admin') {
-                    // Navigate to superadmin page on successful login
-                    console.log('Admin logged in');
                     navigate('/superadmin');
                 } else {
-                    // User is not authorized as an admin, show modal and log out
-                    setModalMessage('You are not authorized as an admin');
+                    setModalMessage('You are not authorized as an admin.');
                     setShowModal(true);
-                    await auth.signOut(); // Log out the user
+                    await auth.signOut();
                 }
             } else {
-                // User does not exist in the 'superadmins' collection
-                setModalMessage('You are not authorized as an admin');
+                setModalMessage('You are not authorized as an admin.');
                 setShowModal(true);
-                await auth.signOut(); // Log out the user
+                await auth.signOut();
             }
         } catch (error) {
-            setError(error.message);
+            console.log('Firebase Error Code:', error.code); // Debug log
+    
+            // Handle common Firebase authentication errors
+            if (error.code === 'auth/wrong-password') {
+                setModalMessage('Incorrect password. Please try again.');
+            } else if (error.code === 'auth/user-not-found') {
+                setModalMessage('No account found with this email. Please check your email.');
+            } else if (error.code === 'auth/invalid-email') {
+                setModalMessage('Invalid email format. Please enter a valid email.');
+            } else if (error.code === 'auth/network-request-failed') {
+                setModalMessage('Network error. Please check your connection and try again.');
+            } else {
+                setModalMessage('Incorrect password or email. Please try again.');
+            }
+    
+            setShowModal(true);
         }
     };
-
+    
     const closeModal = () => setShowModal(false);
 
     return (
@@ -76,34 +83,53 @@ function SuperadminLogin() {
                             placeholder="Password"
                         />
                     </div>
-                    <button type="submit" className="bg-black text-white font-bold py-3 px-3 rounded-lg focus:outline-none focus:shadow-outline hover:bg-gray-900 mt-1">Login</button>
-                    {error && <div className="custom-error">{error}</div>}
+                    <button
+                        type="submit"
+                        className="bg-black text-white font-bold py-3 px-3 rounded-lg focus:outline-none focus:shadow-outline hover:bg-gray-900 mt-1"
+                    >
+                        Login
+                    </button>
                 </form>
                 <p className="text-center mt-4">
-                    Don't have an account? <a href="/superadmin-registration" className="text-blue-500 hover:underline">Register here</a>
+                    Don't have an account?{' '}
+                    <a href="/superadmin-registration" className="text-blue-500 hover:underline">
+                        Register here
+                    </a>
                 </p>
             </div>
+
+            {/* Error Modal */}
             {showModal && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                    <div className="relative bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
-                        <button 
-                            className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
+                    <div className="bg-white p-6 rounded-2xl shadow-lg max-w-sm w-full transition-transform duration-300 ease-in-out">
+                        {/* Close Button */}
+                        <button
+                            className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-2xl"
                             onClick={closeModal}
                         >
                             &times;
                         </button>
-                        <div className="flex items-center justify-center">
-                            
-                                <img src={error1} alt="Error Icon" className="h-14 w-14" />
-                            
+
+                        {/* Icon and Message */}
+                        <div className="flex flex-col items-center">
+                            <HiOutlineExclamationCircle className="text-red-500 w-14 h-14 mb-4" />
+                            <p className="text-center text-gray-800 text-lg font-semibold">
+                                {modalMessage}
+                            </p>
                         </div>
-                        <p className="text-center text-lg font-semibold mt-4">{modalMessage}</p>
+
+                        {/* OK Button */}
+                        <div className="flex justify-center mt-6">
+                            <button
+                                className="w-28 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-all duration-300"
+                                onClick={closeModal}
+                            >
+                                OK
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
-
-
-
         </div>
     );
 }
