@@ -87,7 +87,7 @@ const WarehouseCard = ({ warehouse }) => {
                 </p>
           
                 <div className="flex justify-end mt-4">
-                    <button onClick={handleRentClick} className="bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-6 rounded-md">Rent</button>
+                    <button onClick={handleRentClick} className="bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-6 rounded-md">View</button>
                 </div>
             </div>
 
