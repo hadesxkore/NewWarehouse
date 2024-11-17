@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';  // Import the useNavigate hook
 import firebase from 'firebase/compat/app';  // Ensure this import is included
 import 'firebase/compat/firestore'; // Ensure this import is included for Firestore
 
-import { HiCalendar, HiArrowUp, HiArrowDown, HiX, HiCheckCircle, HiXCircle, HiOutlineEye} from "react-icons/hi";
+import { HiCalendar, HiArrowUp, HiArrowDown, HiX, HiCheckCircle, HiXCircle, HiOutlineEye, HiRefresh } from "react-icons/hi";
 import error1 from '../images/error1.png';
 import success from '../images/Success.gif'
 function Superadmin() {
@@ -34,6 +34,8 @@ function Superadmin() {
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [fileStatuses, setFileStatuses] = useState({});
+    const [resubmittedClicked, setResubmittedClicked] = useState({});
+
     const [showApproveSuccessModal, setShowApproveSuccessModal] = useState(false);
 const [showRejectSuccessModal, setShowRejectSuccessModal] = useState(false);
 
@@ -100,6 +102,13 @@ const fetchArchivedWarehouses = async () => {
  // This function is called when the button is clicked
  const openArchiveModal = () => {
     navigate('/ArchiveWarehouse');  // Redirects to the ArchiveWarehouse page
+};
+
+const handleResubmittedClick = (sanitizedLabel) => {
+    setResubmittedClicked((prevState) => ({
+        ...prevState,
+        [sanitizedLabel]: true,
+    }));
 };
 
 const closeArchiveModal = () => {
@@ -525,81 +534,124 @@ const handleRejectionReasonChange = (event) => {
     </div>
 )}
 
-  {/* Modal for Viewing Files */}
+{/* Redesigned Modal with Larger Text and Improved Button Styling */}
 {isModalOpen && (
-    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-60 z-50">
-        <div className="bg-white p-6 sm:p-8 w-full max-w-3xl rounded-2xl shadow-lg transition-transform transform duration-300">
+    <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-70 z-50 transition-opacity">
+        <div className="relative bg-white p-8 w-full max-w-4xl rounded-xl shadow-2xl">
+            {/* Close Button */}
             <button
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
                 onClick={closeModal}
                 aria-label="Close Modal"
             >
-                <HiX className="h-8 w-8" />
+                <HiX className="h-7 w-7" />
             </button>
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900">Documents for {selectedWarehouse?.name}</h2>
+
+            {/* Modal Header */}
+            <div className="text-center mb-6">
+                <h2 className="text-3xl font-semibold text-gray-900">Documents for {selectedWarehouse?.name}</h2>
+                <p className="text-xl text-gray-600">Review and update the status of the documents below.</p>
             </div>
-            <div className="space-y-6">
-            {selectedFiles.map((file, index) => {
-    const sanitizedLabel = sanitizeFieldName(file.label);
-    const fileStatus = fileStatuses[sanitizedLabel] || '';  // Use fileStatuses from the state
 
-    return (
-        <div key={index} className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200">
-            <p className="text-lg font-semibold text-gray-800 flex-1 text-center">{file.label}</p>
+            {/* Table Layout */}
+            <div className="overflow-x-auto rounded-lg shadow-sm ring-1 ring-gray-200">
+                <table className="min-w-full text-lg">
+                    {/* Table Header */}
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-6 py-4 text-left text-lg font-semibold text-gray-700">Document Name</th>
+                            <th className="px-6 py-4 text-left text-lg font-semibold text-gray-700">Documents</th>
+                            <th className="px-6 py-4 text-left text-lg font-semibold text-gray-700">Status</th>
+                        </tr>
+                    </thead>
 
-            <a
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-6 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
-            >
-                View
-            </a>
+                    {/* Table Body */}
+                    <tbody className="divide-y divide-gray-100">
+                        {selectedFiles.map((file, index) => {
+                            const sanitizedLabel = sanitizeFieldName(file.label);
+                            const fileStatus = fileStatuses[sanitizedLabel] || '';
+                            const isResubmittedClicked = resubmittedClicked[sanitizedLabel] || false;
 
-            <div className="flex items-center gap-6 justify-center">
-                {fileStatus === 'Approved' || fileStatus === 'Rejected' ? (
-                    <p className={`text-lg font-semibold flex items-center ${fileStatus === 'Approved' ? 'text-green-600' : 'text-red-600'}`}>
-                        {fileStatus === 'Approved' ? (
-                            <HiCheckCircle className="h-5 w-5 mr-2" />
-                        ) : (
-                            <HiXCircle className="h-5 w-5 mr-2" />
-                        )}
-                        {fileStatus}
-                    </p>
-                ) : (
-                    <>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name={`status-${index}`}
-                                className="accent-green-600"
-                                onClick={() => handleApproveClick(file, selectedWarehouse.id)}
-                            />
-                            <span className="flex items-center text-green-600">
-                                <HiCheckCircle className="h-5 w-5 mr-2" />
-                                Approve
-                            </span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name={`status-${index}`}
-                                className="accent-red-600"
-                                onClick={() => handleRejectClick(file, selectedWarehouse.id)}
-                            />
-                            <span className="flex items-center text-red-600">
-                                <HiXCircle className="h-5 w-5 mr-2" />
-                                Reject
-                            </span>
-                        </label>
-                    </>
-                )}
-            </div>
+                            return (
+                                <tr key={index} className="bg-white hover:bg-gray-50 transition-colors">
+                                    {/* Document Name Column */}
+                                    <td className="px-6 py-4 text-gray-800 font-medium">{file.label}</td>
+
+                                    {/* Documents Column */}
+                                    <td className="px-6 py-4 text-gray-800">
+                                        <a
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-block text-blue-600 hover:text-blue-700 font-semibold"
+                                        >
+                                            View Document
+                                        </a>
+                                    </td>
+
+  {/* Status Column */}
+<td className="px-6 py-4 text-white">
+    {fileStatus === 'Approved' || fileStatus === 'Rejected' ? (
+        <div
+            className={`flex items-center justify-center text-lg font-medium ${
+                fileStatus === 'Approved'
+                    ? 'bg-green-600 text-white px-6 py-3 rounded-md' // Medium rounded corners
+                    : 'bg-red-600 text-white px-6 py-3 rounded-md'
+            }`}
+        >
+            {fileStatus === 'Approved' ? (
+                <HiCheckCircle className="mr-2" />
+            ) : (
+                <HiXCircle className="mr-2" />
+            )}
+            {fileStatus}
         </div>
-    );
-})}
+    ) : (
+        <>
+            {fileStatus === 'Validating' && !isResubmittedClicked ? (
+                <div className="flex items-center justify-center text-lg font-medium bg-yellow-500 text-white px-6 py-3 rounded-md cursor-pointer" onClick={() => handleResubmittedClick(sanitizedLabel)}>
+                    <HiRefresh className="h-5 w-5 mr-2" />
+                    Resubmitted
+                </div>
+            ) : (
+                <div className="flex items-center gap-6"> {/* Increased gap for clarity */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        type="radio"
+                        name={`status-${index}`}
+                        className="accent-green-600"
+                        onClick={() => handleApproveClick(file, selectedWarehouse.id)}
+                    />
+                    <span className="text-white bg-green-600 px-6 py-3 rounded-md font-semibold hover:bg-green-700">
+                        Approve
+                    </span>
+                </label>
+            
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        type="radio"
+                        name={`status-${index}`}
+                        className="accent-red-600"
+                        onClick={() => handleRejectClick(file, selectedWarehouse.id)}
+                    />
+                    <span className="text-white bg-red-600 px-6 py-3 rounded-md font-semibold hover:bg-red-700">
+                        Reject
+                    </span>
+                </label>
+            </div>
+            
+            )}
+        </>
+    )}
+</td>
 
+
+
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -707,7 +759,7 @@ const handleRejectionReasonChange = (event) => {
 
             {/* Success Message */}
             <p className="text-lg text-center text-gray-700 mb-6">
-                {selectedApproval.fileLabel} has been successfully approved!
+            <span className="font-bold">{selectedApproval.fileLabel}</span> has been successfully approved!
             </p>
 
             {/* Action Button */}
@@ -879,27 +931,28 @@ const handleRejectionReasonChange = (event) => {
                 </div>
             )}
 
-           {/* Success Modal */}
+
+{/* Success Modal */}
 {isSuccessModalOpen && (
     <div className="modal fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-800 bg-opacity-75">
-        <div className="modal-content bg-white p-6 max-w-lg max-h-3/4 overflow-y-auto relative rounded-lg shadow-lg flex flex-col items-center">
+        <div className="modal-content bg-white p-8 max-w-lg rounded-lg shadow-lg flex flex-col items-center">
             <button
-                className="absolute top-3 right-3 text-gray-700 hover:text-gray-900"
+                className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
                 onClick={closeSuccessModal}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <HiX className="h-6 w-6" />
             </button>
-            <div className="text-center flex flex-col items-center">
-                <img src={success} alt="Success" className="h-16 w-16 mb-4" />
-                <h2 className="text-xl font-bold mb-4 text-green-600">Success</h2>
-                <p className="text-gray-700">The warehouse has been successfully deleted.</p>
+            <div className="flex flex-col items-center mb-6">
+                <HiCheckCircle className="text-green-600 h-20 w-20 mb-4" />
+                <h2 className="text-2xl font-bold text-green-600 mb-2">Success</h2>
+                <p className="text-gray-700 text-center text-lg">
+                    The warehouse has been successfully deleted.
+                </p>
             </div>
-            <div className="mt-6 flex justify-end">
+            <div className="flex justify-center w-full">
                 <button
                     onClick={closeSuccessModal}
-                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg"
+                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg focus:outline-none"
                 >
                     Close
                 </button>

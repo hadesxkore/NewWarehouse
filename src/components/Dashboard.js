@@ -10,7 +10,7 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiEye, HiOutlineRefresh, HiX, HiXCircle ,
+import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiEye, HiOutlineRefresh, HiX, HiXCircle, HiRefresh ,
     HiOutlineDocumentText, HiOutlineSave, HiOutlineBan
  } from 'react-icons/hi'; // Import the HiTrash icon
 
@@ -1281,6 +1281,9 @@ const handleFileRemove = (index) => {
             const warehouseDoc = await warehouseRef.get();
             const fileStatusesFromDb = warehouseDoc.data()?.fileStatuses || [];
     
+            // Log current file statuses
+            console.log(`Current file statuses for document ${doc.id}:`, fileStatusesFromDb);
+    
             // Create a map for the file statuses including rejectionReason
             const fileStatusesMap = fileStatusesFromDb.reduce((acc, file) => {
                 const sanitizedLabel = sanitizeFieldName(file.fileLabel);
@@ -1294,10 +1297,14 @@ const handleFileRemove = (index) => {
             // Add fileStatuses to the warehouse data
             warehouseData.fileStatuses = fileStatusesMap;
     
+            // Log file statuses for debugging
+            console.log(`Mapped file statuses for document ${doc.id}:`, warehouseData.fileStatuses);
+    
             return warehouseData;
         }));
     
-        setUserDocuments(docs); // Set user documents with file statuses
+        // Set user documents with file statuses
+        setUserDocuments(docs); 
         setIsModalVisible(true); // Show the modal after fetching documents
         setIsEditModalOpen(false);
     };
@@ -1321,32 +1328,43 @@ const handleResubmitClick = async (item) => {
 
     if (item) {
         try {
-            // Check if the warehouse status is "Rented"
+            // Fetch the warehouse document
             const docRef = firestore.collection('warehouses').doc(item.id);
             const docSnapshot = await docRef.get();
 
             if (docSnapshot.exists) {
                 const docData = docSnapshot.data();
                 
-                if (docData.status === 'verified') {
-                    // Show restriction modal if warehouse is rented
-                    setRestrictedResubmitModalVisible(true);
-                    return;
-                }
+                // Log the current fileStatuses for debugging
+                console.log("Current fileStatuses in the document:", docData.fileStatuses);
 
-                // If not rented, proceed with resubmit
-                setSelectedDoc(item); 
-                setResubmitModalVisible(true); // Show the resubmit modal
+                // Normalize labels for comparison (remove spaces and replace underscores)
+                const normalizeLabel = (label) => label.replace(/\s+/g, '_').toLowerCase(); // Normalize spaces and toLowerCase
+                
+                // Find the specific file from fileStatuses
+                const fileStatuses = docData.fileStatuses || [];
+                const fileToUpdate = fileStatuses.find(file => normalizeLabel(file.fileLabel) === normalizeLabel(item.label)); // Normalize and compare labels
+
+                if (fileToUpdate) {
+                    // Show the resubmit modal
+                    setSelectedDoc(item); // Set the selected document
+                    setResubmitModalVisible(true); // Show the resubmit modal
+                } else {
+                    console.error("File not found in fileStatuses:", item.label);
+                }
             } else {
                 console.error("Document does not exist:", item.id);
             }
         } catch (error) {
-            console.error("Error checking document status:", error);
+            console.error("Error during resubmission:", error);
         }
     } else {
         console.error("Document is undefined:", item);
     }
 };
+
+
+
 
 const handleFileUploadChange = (event) => {
     const file = event.target.files[0];
@@ -1370,6 +1388,12 @@ const mapFieldName = (label) => {
 };
 const uploadDocument = async () => {
     console.log("Attempting to upload document:", selectedDoc); // Debug log
+
+    // Function to sanitize the file label (replaces non-alphanumeric characters with underscores)
+    const sanitizeFieldName = (label) => {
+        return label.replace(/[^a-zA-Z0-9]/g, '_'); // Replace non-alphanumeric characters with underscores
+    };
+
     if (uploadedFile && selectedDoc) {
         console.log("Selected Document ID:", selectedDoc.id); // Log the document ID
         
@@ -1399,8 +1423,27 @@ const uploadDocument = async () => {
             
             // If the field name is valid, update the document
             if (fieldName) {
+                // Update the document with the new file URL
                 await docRef.update({
                     [fieldName]: newFileUrl // Update using the correct field name casing
+                });
+
+                // Now, update the file status to "Validating"
+                const docData = docSnapshot.data();
+                const fileStatuses = docData.fileStatuses || [];
+                const updatedFileStatuses = fileStatuses.map(file => {
+                    if (sanitizeFieldName(file.fileLabel) === sanitizeFieldName(selectedDoc.label)) {
+                        return {
+                            ...file,
+                            status: 'Validating',  // Update the status of the file
+                        };
+                    }
+                    return file;
+                });
+
+                // Update the document with the new file statuses
+                await docRef.update({
+                    fileStatuses: updatedFileStatuses,
                 });
 
                 setSuccessModalVisible(true); // Show success modal
@@ -1419,6 +1462,7 @@ const uploadDocument = async () => {
         console.warn("No uploaded file or selected document:", uploadedFile, selectedDoc);
     }
 };
+
 
 
 const handleViewDocument = (fileUrl) => {
@@ -2464,6 +2508,7 @@ return (
         </div>
     </div>
 )}
+
 {isModalVisible && (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
         <div className="bg-white rounded-lg shadow-lg p-6 w-10/12 md:w-1/2 lg:w-1/3">
@@ -2514,7 +2559,9 @@ return (
 
                                             {/* Display Status */}
                                             <div 
-                                                className={`flex items-center justify-center text-sm font-medium ${doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Rejected' ? 'bg-red-600 text-white px-3 py-1 rounded-md cursor-pointer' : doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Approved' ? 'bg-green-600 text-white px-3 py-1 rounded-md' : 'text-gray-600'}`}
+                                                className={`flex items-center justify-center text-sm font-medium ${doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Rejected' ? 'bg-red-600 text-white px-3 py-1 rounded-md cursor-pointer' : 
+                                                    doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Approved' ? 'bg-green-600 text-white px-3 py-1 rounded-md' :
+                                                    doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Validating' ? 'bg-yellow-500 text-white px-3 py-1 rounded-md' : 'text-gray-600'}`}
                                                 onClick={() => {
                                                     if (doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Rejected') {
                                                         handleShowRejectionReason(doc.fileStatuses[sanitizeFieldName(item.label)]?.rejectionReason);
@@ -2525,6 +2572,8 @@ return (
                                                     <HiXCircle className="mr-2 text-white" />
                                                 ) : doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Approved' ? (
                                                     <HiCheckCircle className=" text-white" />
+                                                ) : doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status === 'Validating' ? (
+                                                    <HiRefresh className=" text-white" />
                                                 ) : null}
                                                 {doc.fileStatuses && doc.fileStatuses[sanitizeFieldName(item.label)]?.status || 'Pending'}
                                             </div>
