@@ -38,23 +38,6 @@ function Users() {
         };
     }, []);
 
-    // Function to update the lastLoginTimestamp on user login
-const updateLastLogin = async (userId) => {
-    try {
-        await firestore.collection('superadmins').doc(userId).update({
-            lastLoginTimestamp: new Date(), // Update with the current timestamp
-        });
-    } catch (error) {
-        console.error("Error updating last login timestamp: ", error);
-    }
-};
-
-// Call this function when the admin logs in
-auth.onAuthStateChanged((user) => {
-    if (user) {
-        updateLastLogin(user.uid); // Update last login for the logged-in admin
-    }
-});
     useEffect(() => {
         // Set up Firestore listeners for warehouse counts
         const warehouseListeners = users.map(user => {
@@ -244,10 +227,7 @@ auth.onAuthStateChanged((user) => {
                             <span><strong>Created:</strong> {account.createdTimestamp ? account.createdTimestamp.toDate().toLocaleString() : 'N/A'}</span>
                         </div>
                         
-                        <div className="flex items-center text-sm text-gray-600">
-                            <HiLockClosed size={22} className="mr-2 text-gray-500" />
-                            <span><strong>Last Login:</strong> {account.lastLoginTimestamp ? account.lastLoginTimestamp.toDate().toLocaleString() : 'Never Logged In'}</span>
-                        </div>
+                       
                     </div>
                     
                     <button 
