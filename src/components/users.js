@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { firestore } from '../firebase'; // Import Firestore
+import { auth, firestore } from '../firebase'; // Import Firestore and Firebase Auth
 import Navigation from './Navigation'; // Import Navigation component
 import CustomPopUp from './CustomPopUp'; // Import CustomPopUp component
 import './users.css';
+import { HiOutlineExclamationCircle,HiTrash } from 'react-icons/hi';
+import { HiMail, HiCalendar, HiUserCircle, HiLockClosed } from 'react-icons/hi';
 
 function Users() {
     const [users, setUsers] = useState([]);
@@ -15,6 +17,7 @@ function Users() {
     const userCount = users.length; // Calculate the number of current users
     const [title, setTitle] = useState('User Management');
     const [warehouseCounts, setWarehouseCounts] = useState({});
+    const [accountToDelete, setAccountToDelete] = useState(null); // For storing the account to delete
 
     useEffect(() => {
         // Set up Firestore listeners on component mount
@@ -35,6 +38,23 @@ function Users() {
         };
     }, []);
 
+    // Function to update the lastLoginTimestamp on user login
+const updateLastLogin = async (userId) => {
+    try {
+        await firestore.collection('superadmins').doc(userId).update({
+            lastLoginTimestamp: new Date(), // Update with the current timestamp
+        });
+    } catch (error) {
+        console.error("Error updating last login timestamp: ", error);
+    }
+};
+
+// Call this function when the admin logs in
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        updateLastLogin(user.uid); // Update last login for the logged-in admin
+    }
+});
     useEffect(() => {
         // Set up Firestore listeners for warehouse counts
         const warehouseListeners = users.map(user => {
@@ -105,11 +125,19 @@ function Users() {
         setSearchTerm(''); // Clear search term
     };
 
-    const handleDeleteAccount = async (accountId) => {
+    const handleDeleteAccount = (accountId) => {
+        setAccountToDelete(accountId); // Set the account to be deleted
+        setShowConfirmation(true); // Show the confirmation modal
+    };
+
+    const confirmDeleteAccount = async () => {
         try {
-            await firestore.collection('superadmins').doc(accountId).delete();
+            await firestore.collection('superadmins').doc(accountToDelete).delete();
         } catch (error) {
             console.error('Error deleting account:', error);
+        } finally {
+            setShowConfirmation(false);
+            setAccountToDelete(null); // Reset the accountToDelete
         }
     };
 
@@ -140,52 +168,132 @@ function Users() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {!showUserAccounts && filteredUsers.map(user => (
-        <div key={user.id} className="rounded-lg overflow-hidden shadow-lg bg-white transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-xl">
-            <img src={user.profileImage} alt="Profile" className="w-24 h-24 rounded-full mx-auto mt-4 hover:opacity-75" onClick={() => showUserDetails(user.id)} />
-            <div className="p-4">
-                <h2 className="text-xl font-semibold mb-2 text-center">{user.firstName} {user.lastName}</h2>
-                <p className="text-gray-600 mb-2 text-center">{user.email}</p>
-                <div className="bg-white bg-opacity-70 p-4 rounded-md shadow-md mb-4">
-                    <p className="text-green-500">Verified Warehouses: {warehouseCounts[user.id]?.verifiedCount || 0}</p>
-                    <p className="text-yellow-500">Pending Warehouses: {warehouseCounts[user.id]?.pendingCount || 0}</p>
-                    <p className="text-red-500">Rejected Warehouses: {warehouseCounts[user.id]?.rejectedCount || 0}</p>
+        <div key={user.id} className="rounded-lg overflow-hidden shadow-lg bg-white transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-2xl">
+            <div className="flex justify-center mt-4">
+                <img
+                    src={user.profileImage || '/path/to/default-profile-icon.png'} // Default image for users without a profile picture
+                    alt="Profile"
+                    className="w-32 h-32 rounded-full object-cover hover:opacity-80 cursor-pointer transition duration-300"
+                    onClick={() => showUserDetails(user.id)}
+                />
+            </div>
+            <div className="p-6">
+                <h2 className="text-2xl font-semibold text-center text-gray-800 mb-2">{user.firstName} {user.lastName}</h2>
+                <p className="text-lg text-center text-gray-600 mb-4">{user.email}</p>
+                
+                <div className="bg-white bg-opacity-80 p-4 rounded-lg shadow-md mb-4">
+                    <p className="text-green-500 font-semibold">Verified Warehouses: {warehouseCounts[user.id]?.verifiedCount || 0}</p>
+                    <p className="text-yellow-500 font-semibold">Pending Warehouses: {warehouseCounts[user.id]?.pendingCount || 0}</p>
+                    <p className="text-red-500 font-semibold">Rejected Warehouses: {warehouseCounts[user.id]?.rejectedCount || 0}</p>
                 </div>
-                <div className="flex justify-center">
-                    <button className="text-red-500 hover:text-red-700 mr-2" onClick={(event) => deleteUser(event, user.id)}>Delete</button>
+                
+                <div className="flex justify-center space-x-4">
+                    <button
+                        onClick={(event) => deleteUser(event, user.id)}
+                        className="bg-red-600 text-white hover:bg-red-700 px-6 py-3 rounded-lg font-medium transition duration-300 flex items-center"
+                    >
+                        <HiTrash size={20} className="mr-2" />
+                        Delete
+                    </button>
                 </div>
             </div>
         </div>
     ))}
 
 
-<div className="grid grid-cols-1">
+
+
+
+<div className="grid grid-cols-1 gap-6">
     {showUserAccounts && (
         <div className="user-card">
             {adminAccounts.map(account => (
-                <div key={account.id} className="rounded-lg overflow-hidden shadow-lg bg-white transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-xl p-4 mb-4">
-                    <p className="text-lg font-semibold mb-2"><strong>Display Name:</strong> {account.displayName}</p>
-                    <p className="text-gray-600 mb-2"><strong>Email:</strong> {account.email}</p>
-                    <p className="text-gray-600 mb-2"><strong>Created Timestamp:</strong> {account.createdTimestamp ? account.createdTimestamp.toDate().toString() : ''}</p>
-                    <p className="text-gray-600 mb-2"><strong>Last Login Timestamp:</strong> {account.lastLoginTimestamp ? account.lastLoginTimestamp.toDate().toString() : ''}</p>
-                    <p className="text-gray-600 mb-2"><strong>Profile Picture:</strong> {account.profilePicture}</p>
-                    <p className="text-gray-600 mb-2"><strong>Role:</strong> {account.role}</p>
-                    <button onClick={() => handleDeleteAccount(account.id)} className="bg-red-500 text-white px-4 py-2 rounded-md mt-4 hover:bg-red-600 transition duration-300">Delete Account</button>
+                <div key={account.id} className="bg-white shadow-2xl rounded-2xl p-8 transition-transform transform hover:scale-105 hover:shadow-2xl mb-6">
+                    <div className="flex items-center space-x-6 mb-6">
+                        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                            {account.profilePicture ? (
+                                <img 
+                                    src={account.profilePicture} 
+                                    alt="Profile Picture" 
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <HiUserCircle size={72} className="text-gray-400" />
+                            )}
+                        </div>
+                        <div className="flex flex-col justify-center space-y-2">
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm text-gray-500 font-medium">Name:</p>
+                                <p className="text-2xl font-semibold text-gray-800">{account.displayName}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm text-gray-500 font-medium">Role:</p>
+                                <p className="text-lg text-gray-600">{account.role}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center text-lg font-medium text-gray-800 mb-4">
+                        <HiMail size={24} className="mr-2 text-gray-500" />
+                        <span><strong>Email:</strong> {account.email}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="flex items-center text-sm text-gray-600">
+                            <HiCalendar size={22} className="mr-2 text-gray-500" />
+                            <span><strong>Created:</strong> {account.createdTimestamp ? account.createdTimestamp.toDate().toLocaleString() : 'N/A'}</span>
+                        </div>
+                        
+                        <div className="flex items-center text-sm text-gray-600">
+                            <HiLockClosed size={22} className="mr-2 text-gray-500" />
+                            <span><strong>Last Login:</strong> {account.lastLoginTimestamp ? account.lastLoginTimestamp.toDate().toLocaleString() : 'Never Logged In'}</span>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={() => handleDeleteAccount(account.id)} 
+                        className="mt-6 bg-red-600 text-white px-6 py-3 rounded-lg text-sm font-semibold hover:bg-red-700 transition duration-300 w-full">
+                        Delete Account
+                    </button>
                 </div>
             ))}
         </div>
     )}
 </div>
+
+
+
 </div>
 </div>
-         
-            {/* Confirmation popup */}
-            {showConfirmation && (
-                <CustomPopUp
-                    message="Are you sure you want to delete this user?"
-                    onCancel={() => setShowConfirmation(false)}
-                    onConfirm={confirmDeleteUser}
-                />
-            )}
+        {/* Confirmation Popup */}
+{showConfirmation && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-xl">
+      <div className="flex justify-center mb-6">
+        <HiOutlineExclamationCircle className="text-red-600 text-5xl" />
+      </div>
+   <h3 className="text-2xl font-semibold text-center text-gray-800 mb-4">
+  Are you sure you want to delete this user?
+</h3>
+
+      <p className="text-center text-gray-700 mb-6">This action cannot be undone.</p>
+      <div className="flex justify-between">
+        <button
+          className="bg-gray-300 text-gray-700 py-2 px-6 rounded-md hover:bg-gray-400 focus:outline-none transition"
+          onClick={() => setShowConfirmation(false)}
+        >
+          Cancel
+        </button>
+        <button
+          className="bg-red-600 text-white py-2 px-6 rounded-md hover:bg-red-700 focus:outline-none transition"
+          onClick={confirmDeleteUser}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {/* User details pop-up modal */}
 {selectedUser && (
     <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center z-50 bg-gray-800 bg-opacity-75">
