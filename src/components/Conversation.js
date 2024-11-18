@@ -31,44 +31,72 @@ const Conversation = () => {
     
     const messagesEndRef = useRef(null);
 
+    
     const loadConversation = async () => {
         try {
             const conversationRef = firestore.collection('conversations').doc(conversationId);
             const conversationSnapshot = await conversationRef.get();
-            if (conversationSnapshot.exists) {
-                const conversationData = conversationSnapshot.data();
-                setConversation(conversationData);
-
-                const ownerParticipantId = conversationData.participants.find(participant => participant !== currentUserId);
-                const rentedWarehousesRef = firestore.collection('rentedWarehouses');
-                const rentedWarehousesSnapshot = await rentedWarehousesRef.where('ownerUid', '==', ownerParticipantId).get();
-                
-                if (!rentedWarehousesSnapshot.empty) {
-                    setOwnerRole('Lessor');
-                } else {
-                    setOwnerRole('Lessee');
-                }
-
-                const ownerRef = firestore.collection('users').doc(ownerParticipantId);
-                const ownerSnapshot = await ownerRef.get();
-                if (ownerSnapshot.exists) {
-                    const ownerData = ownerSnapshot.data();
-                    setOwnerInfo(ownerData);
-                } else {
-                    console.error('Owner not found');
-                }
-
-                const messagesSnapshot = await conversationRef.collection('messages').orderBy('timestamp', 'asc').get();
-                const messagesData = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setMessages(messagesData);
-            } else {
+    
+            if (!conversationSnapshot.exists) {
                 console.error('Conversation not found');
+                return;
             }
+    
+            const conversationData = conversationSnapshot.data();
+            setConversation(conversationData);
+    
+            const { participants } = conversationData;
+            if (!participants || participants.length < 2) {
+                console.error('Participants data is invalid');
+                return;
+            }
+    
+            let otherUserId;
+            let role;
+    
+            // Determine role and other participant ID
+            if (participants[0] === currentUserId) {
+                role = '(Lessor)';
+                otherUserId = participants[1];
+            } else if (participants[1] === currentUserId) {
+                role = '(Lessee)';
+                otherUserId = participants[0];
+            } else {
+                console.error('Current user is not a participant in this conversation');
+                return;
+            }
+    
+            setOwnerRole(role);
+            console.log("Owner Role:", role); // Debugging
+    
+            // Fetch other participant's user data and messages in parallel
+            const otherUserRef = firestore.collection('users').doc(otherUserId);
+            const [otherUserSnapshot, messagesSnapshot] = await Promise.all([
+                otherUserRef.get(),
+                conversationRef.collection('messages').orderBy('timestamp', 'asc').get(),
+            ]);
+    
+            // Handle other participant's user data
+            if (otherUserSnapshot.exists) {
+                const otherUserData = otherUserSnapshot.data();
+                setOwnerInfo(otherUserData);
+                console.log("Owner Info Loaded:", otherUserData); // Debugging
+            } else {
+                console.error('Other participant not found');
+            }
+    
+            // Load messages
+            const messagesData = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMessages(messagesData);
         } catch (error) {
             console.error('Error loading conversation:', error);
         }
     };
-
+    
+    useEffect(() => {
+        loadConversation();
+    }, [conversationId, currentUserId]);
+    
 
     const sendMessage = async () => {
         try {
@@ -260,41 +288,45 @@ const Conversation = () => {
         <h2 className="text-xl md:text-3xl font-semibold mb-4">{ownerInfo ? `${ownerInfo.first_name}'s Information` : 'Owner Information'}</h2>
      
         <div className="bg-white rounded-lg p-4 md:p-6 space-y-4">
-            {ownerInfo ? (
-                <>
-                    <div className="flex items-center space-x-4">
-                        <img src={ownerInfo.profileImage} alt="Profile" className="w-12 h-12 md:w-16 md:h-16 rounded-full" />
-                        <div>
-                                <p className="text-base md:text-2xl font-semibold">{`${ownerInfo.first_name} ${ownerInfo.last_name}`}</p>
-                                <p className="text-sm md:text-xl text-gray-700">{`(${ownerRole})`}</p>
-                            <p className="text-sm md:text-xl text-gray-700">{ownerInfo.email}</p>
-                        </div>
-                    </div>
-                    <div className="border-t border-gray-300 pt-4">
-                        <p className="text-base md:text-2xl text-gray-700 font-semibold">Additional Information:</p>
-                        <div className="flex items-center text-sm md:text-base text-gray-700">
-                            <img src={locationIcon} alt="Location" className="w-4 h-4 md:w-6 md:h-6 mr-2" />
-                            <span className="font-semibold">Address:</span> {ownerInfo.address || 'Not available'}
-                        </div>
-                        <div className="flex items-center text-sm md:text-base text-gray-700">
-                            <img src={emailIcon} alt="Email" className="w-4 h-4 md:w-6 md:h-6 mr-2" />
-                            <span className="font-semibold">Email:</span>
-                            <a href={`mailto:${ownerInfo.email}`} className="ml-1 email-link underline text-blue-700">
-                                {ownerInfo.email || 'Not available'}
-                            </a>
-                        </div>
-                        <div className="flex items-center text-sm md:text-base text-gray-700">
-                            <img src={phoneIcon} alt="Phone" className="w-4 h-4 md:w-6 md:h-6 mr-2" />
-                            <span className="font-semibold">Contact Number:</span>
-                            <a href={`tel:${ownerInfo.contact_number}`} className="ml-1 phone-link underline text-blue-700">
-                                {ownerInfo.contact_number || 'Not available'}
-                            </a>
-                        </div>
-                    </div>
-                </>
-            ) : (
-                <p className="text-base md:text-2xl">Loading...</p>
-            )}
+        {ownerInfo ? (
+        <>
+            <div className="flex items-center space-x-4">
+                <img src={ownerInfo.profileImage} alt="Profile" className="w-12 h-12 md:w-16 md:h-16 rounded-full" />
+                <div>
+                    <h2 className="text-xl md:text-3xl font-semibold mb-4">
+                        {ownerInfo ? `${ownerInfo.first_name}'s Information ` : 'Participant Information'}
+                    </h2>
+                    <p className="text-sm md:text-xl text-gray-700">
+                        {ownerRole || '(Lessee)'} {/* If ownerRole is not set, default to 'Lessee' */}
+                    </p>
+                    <p className="text-sm md:text-xl text-gray-700">{ownerInfo.email}</p>
+                </div>
+            </div>
+            <div className="border-t border-gray-300 pt-4">
+                <p className="text-base md:text-2xl text-gray-700 font-semibold">Additional Information:</p>
+                <div className="flex items-center text-sm md:text-base text-gray-700">
+                    <img src={locationIcon} alt="Location" className="w-4 h-4 md:w-6 md:h-6 mr-2" />
+                    <span className="font-semibold">Address:</span> {ownerInfo.address || 'Not available'}
+                </div>
+                <div className="flex items-center text-sm md:text-base text-gray-700">
+                    <img src={emailIcon} alt="Email" className="w-4 h-4 md:w-6 md:h-6 mr-2" />
+                    <span className="font-semibold">Email:</span>
+                    <a href={`mailto:${ownerInfo.email}`} className="ml-1 email-link underline text-blue-700">
+                        {ownerInfo.email || 'Not available'}
+                    </a>
+                </div>
+                <div className="flex items-center text-sm md:text-base text-gray-700">
+                    <img src={phoneIcon} alt="Phone" className="w-4 h-4 md:w-6 md:h-6 mr-2" />
+                    <span className="font-semibold">Contact Number:</span>
+                    <a href={`tel:${ownerInfo.contact_number}`} className="ml-1 phone-link underline text-blue-700">
+                        {ownerInfo.contact_number || 'Not available'}
+                    </a>
+                </div>
+            </div>
+        </>
+    ) : (
+        <p className="text-base md:text-2xl">Loading...</p>
+    )}
         </div>
     </div>
 

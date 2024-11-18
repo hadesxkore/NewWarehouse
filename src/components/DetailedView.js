@@ -320,23 +320,27 @@ const handleCloseModal = () => {
         </div>
         );
     };
-    
     const createOrGetConversation = async (user, ownerUid, uploaderInfo) => {
         try {
             const participants = [user.uid, ownerUid].sort();
             const conversationRef = firestore.collection('conversations');
+    
+            // Query conversations to find if one already exists with the current user and owner
             const conversationSnapshot = await conversationRef
                 .where('participants', 'array-contains', user.uid)
                 .get();
-
+    
+            // Check if a conversation exists with the current user
             let conversationId = null;
             conversationSnapshot.forEach(doc => {
                 const data = doc.data();
+                // Check if both the user and the owner are in the conversation
                 if (data.participants.includes(ownerUid)) {
                     conversationId = doc.id;
                 }
             });
-
+    
+            // If no conversation is found, create a new one
             if (!conversationId) {
                 const newConversationRef = conversationRef.doc();
                 await newConversationRef.set({
@@ -346,12 +350,14 @@ const handleCloseModal = () => {
                 });
                 conversationId = newConversationRef.id;
             }
-
+    
+            // Navigate to the existing or newly created conversation
             navigate(`/conversation/${conversationId}`);
         } catch (error) {
             console.error('Error creating or fetching conversation:', error);
         }
     };
+    
     const handleMessageButtonClick = async () => {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
             if (user && warehouse) {
@@ -368,7 +374,7 @@ const handleCloseModal = () => {
             unsubscribe();
         });
     };
-
+    
 
   
  
