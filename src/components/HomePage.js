@@ -206,6 +206,8 @@ const [lastName, setLastName] = useState('');
             .then(() => {
                 setIsLoggedIn(false);
                 setIsDropdownOpen(false);
+                navigate('/login'); // Redirect to login page
+
             })
             .catch(error => {
                 console.error('Error signing out:', error);
