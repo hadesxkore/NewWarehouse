@@ -206,7 +206,7 @@ const [lastName, setLastName] = useState('');
             .then(() => {
                 setIsLoggedIn(false);
                 setIsDropdownOpen(false);
-                navigate('/login'); // Redirect to login page
+                navigate('/home'); // Redirect to login page
 
             })
             .catch(error => {

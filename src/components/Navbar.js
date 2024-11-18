@@ -75,7 +75,7 @@ const Navbar = () => {
                 setIsLoggedIn(false);
                 setIsDropdownOpen(false);
                 setShowConfirmation(false); // Hide confirmation modal after logout
-                navigate('/login'); // Redirect to login page
+                navigate('/home'); // Redirect to login page
             })
             .catch(error => {
                 console.error('Error signing out:', error);

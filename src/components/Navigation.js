@@ -4,10 +4,12 @@ import notificationIcon from '../images/notification.png';
 import { auth, firestore } from '../firebase';
 import CustomPopup from './CustomPopUp';
 import './Navigation.css';
+import { useNavigate } from 'react-router-dom';
 
 function Navigation() {
     const [showPopup, setShowPopup] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
+    const navigate = useNavigate(); // Initialize useNavigate
 
     const handleLogout = () => {
         setShowPopup(true);
@@ -16,6 +18,8 @@ function Navigation() {
     const confirmLogout = () => {
         auth.signOut().then(() => {
             // Sign-out successful.
+            navigate('/superadmin');
+
         }).catch((error) => {
             // An error happened.
             console.error("Error logging out:", error);
