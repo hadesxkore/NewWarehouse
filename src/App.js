@@ -20,6 +20,8 @@ import ChatPage from './components/ChatPage';
 import DetailedView from './components/DetailedView';
 import Warehouses from './components/Warehouses'; // Import the Warehouses component
 import Footer from './components/Footer';
+import AboutUs from './components/AboutUs'; // Import the AboutUs component
+
 import { auth, firestore } from './firebase';
 import Navigation from './components/Navigation';
 import RentalAgreements from './components/RentalAgreements';
@@ -69,6 +71,8 @@ function App() {
                         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                         <Route path="/verify" element={<VerifyPage />} />
                         <Route path="/home" element={<HomePage />} />
+                        <Route path="/about" element={<AboutUs />} />
+
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/users" element={<Users />} />

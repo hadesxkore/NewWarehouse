@@ -304,7 +304,7 @@ const [lastName, setLastName] = useState('');
         <div className="flex items-center space-x-6 pt-2">
             {/* Display First Name and Last Name Beside the Sign Up / Log In */}
             <h2 className="text-1xl font-bold hidden md:flex">
-                {firstName || 'Guest'} {lastName || 'Guest'}
+                {firstName || 'Guest'} {lastName}
             </h2>
 
             <div className="flex items-center space-x-6">
