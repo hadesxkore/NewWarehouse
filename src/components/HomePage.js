@@ -200,19 +200,20 @@ const [lastName, setLastName] = useState('');
     
    
     
-    const handleLogout = () => {
-        setShowConfirmation(false);
-        auth.signOut()
-            .then(() => {
-                setIsLoggedIn(false);
-                setIsDropdownOpen(false);
-                navigate('/home'); // Redirect to login page
+   const handleLogout = () => {
+    setShowConfirmation(false);
+    auth.signOut()
+        .then(() => {
+            setIsLoggedIn(false);
+            setIsDropdownOpen(false);
+            navigate('/home'); // Redirect to home page
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Error signing out:', error);
+        });
+};
 
-            })
-            .catch(error => {
-                console.error('Error signing out:', error);
-            });
-    };
 
     // Function to toggle dropdown menu
     const toggleDropdown = () => {
