@@ -24,6 +24,7 @@ import * as PANOLENS from 'panolens';
 import 'panolens';
 import { HiOutlineExclamationCircle, HiQuestionMarkCircle  } from 'react-icons/hi';
 
+
 const DetailView = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -241,6 +242,7 @@ const handleCloseModal = () => {
                                     ownerUid: ownerUid, // Set ownerUid to the uploader's UID or warehouse ID
                                     rentedAt: new Date(),
                                     status: 'Processing', // Retain the status processing
+                                    transactionStatus: 'Pending', // Add the new field with value "Pending"
                                     rentedBy: {
                                         userId: user.uid,
                                         firstName: first_name || '',

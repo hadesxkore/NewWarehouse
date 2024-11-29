@@ -12,6 +12,8 @@ import reportIcon from '../images/problem.png';
 import defaultProfileImage from '../images/default-profile-image.png';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Navbar.css';
+import { Tooltip } from 'react-tooltip'; // Correct import
+
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -21,10 +23,58 @@ const Navbar = () => {
     const [lastName, setUserLast] = useState('');
     const [loggedInUserId, setLoggedInUserId] = useState(null); // Define and initialize loggedInUserId
     const [currentUserId, setCurrentUserId] = useState(null); // Add state for current user ID
+    const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false); // Confirmation modal state
+    const [conversationCount, setConversationCount] = useState(0);
 
+
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                setCurrentUserId(user.uid);
+                const count = await checkUnreadMessages(user.uid);
+                setConversationCount(count);
+            } else {
+                setCurrentUserId(null);
+                setConversationCount(0);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+    
+
+    const checkUnreadMessages = async (userId) => {
+        try {
+            const conversationsQuery = await firestore
+                .collection('conversations')
+                .where('participants', 'array-contains', userId)
+                .get();
+    
+            let conversationCount = 0;
+    
+            for (const conversation of conversationsQuery.docs) {
+                const messagesQuery = await firestore
+                    .collection('conversations')
+                    .doc(conversation.id)
+                    .collection('messages')
+                    .where('senderId', '!=', userId) // Messages sent by others
+                    .get();
+    
+                if (!messagesQuery.empty) {
+                    conversationCount++;
+                }
+            }
+    
+            setHasUnreadMessages(conversationCount > 0); // True if there are unread messages
+            return conversationCount; // Return the count
+        } catch (error) {
+            console.error('Error checking unread messages:', error);
+            return 0; // Return 0 in case of an error
+        }
+    };
+    
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -143,10 +193,21 @@ const Navbar = () => {
                                             Lease Agreement
                                         </Link>
                                       
-                                        <Link to="/chat" className="block px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black">
-                                            <img src={chatIcon} alt="Chat" className="h-6 mr-2 text-black" />
-                                            Chat
-                                        </Link>
+                                        <Link
+                    to="/chat"
+                    className="relative flex items-center px-4 py-2 hover:bg-gray-200 transition duration-300 text-black"
+                >
+                    <img src={chatIcon} alt="Chat" className="h-6 mr-2" />
+                    Chat
+                    {conversationCount > 0 && (
+                        <span className="absolute top-1/2 transform -translate-y-1/2 right-4 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                            {conversationCount}
+                        </span>
+                    )}
+                </Link>
+
+
+
                                         <div className="border-t border-gray-300"></div>
                                         <button className="block w-full text-left px-4 py-2 flex items-center hover:bg-gray-200 transition duration-300 text-black" onClick={handleLogout}>
                                             <img src={logoutIcon} alt="Logout" className="h-6 mr-2 text-black" />

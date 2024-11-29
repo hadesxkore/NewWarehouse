@@ -51,39 +51,60 @@ function RentalAgreements() {
     };
     
     
-    
     useEffect(() => {
         const currentUser = auth.currentUser;
         if (currentUser) {
             // Fetch agreements for both lessor (userUid) and lessee (userId)
             const lessorQuery = db.collection('rentalAgreement')
                 .where('userId', '==', currentUser.uid);
-
+    
             const lesseeQuery = db.collection('rentalAgreement')
                 .where('userUid', '==', currentUser.uid);
-
+    
             // Combine queries using Promise.all to wait for both to resolve
             Promise.all([lessorQuery.get(), lesseeQuery.get()])
                 .then(([lessorSnapshot, lesseeSnapshot]) => {
                     const lessorAgreements = lessorSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     const lesseeAgreements = lesseeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     const allAgreements = [...lessorAgreements, ...lesseeAgreements];
-
+    
                     setRentalAgreements(allAgreements);
                     setAgreementsCount(allAgreements.length); // Update the count of rental agreements
-
+    
                     // Determine current user role (lessor or lessee)
                     if (lessorSnapshot.docs.length > 0) {
                         setCurrentUserRole('lessor');
                     } else if (lesseeSnapshot.docs.length > 0) {
                         setCurrentUserRole('lessee');
                     }
+    
+                    // Automatically delete agreements whose end date has passed
+                    allAgreements.forEach(async (agreement) => {
+                        const currentDate = new Date();
+                        const endDate = new Date(agreement.end_date); // Ensure it's a date object
+    
+                        // Check if the agreement's end date has passed
+                        if (endDate < currentDate) {
+                            try {
+                                // Delete expired agreement from Firestore
+                                await db.collection('rentalAgreement').doc(agreement.id).delete();
+                                // Remove the agreement from the state
+                                setRentalAgreements(prevAgreements => 
+                                    prevAgreements.filter(a => a.id !== agreement.id)
+                                );
+                                console.log(`Agreement with ID ${agreement.id} has been automatically deleted because the end date has passed.`);
+                            } catch (error) {
+                                console.error('Error deleting expired agreement:', error);
+                            }
+                        }
+                    });
                 })
                 .catch((error) => {
                     console.error('Error fetching rental agreements: ', error);
                 });
         }
     }, []);
+    
 
     const showConfirmDeleteModal = (agreementId) => {
         setAgreementToDelete(agreementId);
@@ -153,7 +174,7 @@ function RentalAgreements() {
         Lessee Name: ${lesseeName}
         Start Date: ${new Date(start_date).toLocaleDateString()}
         End Date: ${new Date(end_date).toLocaleDateString()}
-        Rent Amount: ₱${rentAmount} (${rentFrequency})
+Rent Amount: ₱${rentAmount.toLocaleString()} (${rentFrequency})
         Deposit Amount: ₱${depositAmount}
         Terms: ${terms}
         `;
@@ -248,13 +269,13 @@ function RentalAgreements() {
                         <p className="text-gray-700">{new Date(agreement.end_date).toLocaleDateString()}</p>
                     </div>
                     <div className="bg-gray-100 p-4 rounded-lg">
-                        <p className="text-gray-900 text-lg font-semibold">Rent Amount:</p>
-                        <p className="text-gray-700">₱{agreement.rentAmount} {agreement.rentFrequency}</p>
-                    </div>
+                    <p className="text-gray-900 text-lg font-semibold">Rent Amount:</p>
+                    <p className="text-gray-700">₱{agreement.rentAmount.toLocaleString()} {agreement.rentFrequency}</p>
+                </div>
                     <div className="bg-gray-100 p-4 rounded-lg">
-                        <p className="text-gray-900 text-lg font-semibold">Deposit Amount:</p>
-                        <p className="text-gray-700">₱{agreement.depositAmount}</p>
-                    </div>
+                    <p className="text-gray-900 text-lg font-semibold">Deposit Amount:</p>
+                    <p className="text-gray-700">₱{agreement.depositAmount.toLocaleString()}</p>
+                </div>
                     <div className="col-span-2 bg-gray-100 p-4 rounded-lg">
                         <p className="text-gray-900 text-lg font-semibold">Terms:</p>
                         <p className="text-gray-700">{agreement.terms.length > 55 ? `${agreement.terms.slice(0, 55)}...` : agreement.terms}</p>
@@ -413,105 +434,145 @@ function RentalAgreements() {
 )}
 
 {modalVisible && (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-        <div className="absolute inset-0 flex items-center justify-center z-60">
-            <div className="relative bg-white rounded-lg shadow-lg p-6 w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto">
-                <button
-                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
-                    onClick={() => setModalVisible(false)}
-                >
-                    &times;
-                </button>
-                <h2 className="text-xl font-semibold mb-4 text-center">Rental Agreement</h2>
-                <div className="border-b border-gray-400 mb-4"></div>
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+        <div className="relative bg-white rounded-lg w-full max-w-5xl p-10 overflow-y-auto shadow-2xl transition-transform transform duration-300 ease-in-out max-h-[90vh]">
+            <button
+                className="absolute top-4 right-4 text-gray-700 hover:text-gray-900 text-3xl transition-colors duration-200"
+                onClick={() => setModalVisible(false)}
+            >
+                &times;
+            </button>
 
-                {/* Warehouse Name */}
-                <div className="flex justify-center mb-4">
-                    <div className="border border-gray-400 rounded-full px-4 py-2 text-lg font-semibold">
-                        {selectedAgreement?.warehouseName}
+            <h2 className="text-4xl font-bold text-center text-gray-900 mb-6">LEASE CONTRACT</h2>
+            
+     {/* Pre-sample sentence about contract signing */}
+<div className="mb-6 text-lg text-gray-700">
+    <p className="text-center">
+        This Lease Agreement is made and entered into by and between the LESSOR and LESSEE on the terms and conditions set forth below. The parties agree to the lease of the premises as described, and both acknowledge their mutual understanding and acceptance of the terms outlined herein.
+    </p>
+</div>
+
+{/* Lessor and Lessee Details */}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-10 mb-8 text-lg">
+    <div className='text-left'>
+        <p className="font-semibold text-gray-800">LESSOR:</p>
+        <p className="text-gray-800">{selectedAgreement?.lessorName}</p>
+        <p className="text-gray-600">TIN Number: {selectedAgreement?.lessorTinNumber}</p>
+    </div>
+    <div className='text-right'>
+        <p className="font-semibold text-gray-800">LESSEE:</p>
+        <p className="text-gray-800">{selectedAgreement?.lesseeName}</p>
+        <p className="text-gray-600">TIN Number: {selectedAgreement?.lesseeTinNumber}</p> {/* Assuming lesseeTinNumber exists */}
+    </div>
+</div>
+
+            {/* Start Date, End Date, Amount, and Deposit */}
+            <div className="grid grid-cols-2 gap-8 mb-6 text-lg">
+                <div className="flex justify-between">
+                    <p className="font-semibold text-gray-800">Start Date:</p>
+                    <p>{new Date(selectedAgreement?.start_date).toLocaleDateString()}</p>
+                </div>
+                <div className="flex justify-between">
+                    <p className="font-semibold text-gray-800">End Date:</p>
+                    <p>{new Date(selectedAgreement?.end_date).toLocaleDateString()}</p>
+                </div>
+                <div className="flex justify-between">
+                    <p className="font-semibold text-gray-800">Amount:</p>
+                    <p>₱{selectedAgreement?.rentAmount?.toLocaleString()}</p> {/* Format rentAmount */}
+                </div>
+                <div className="flex justify-between">
+                    <p className="font-semibold text-gray-800">Deposit:</p>
+                    <p>₱{selectedAgreement?.depositAmount?.toLocaleString()}</p> {/* Format depositAmount */}
+                </div>
+            </div>
+
+            {/* Lease Details */}
+            <div className="mb-8">
+                <p className="text-2xl font-semibold text-gray-900">WITNESSETH; That</p>
+                <p className="mt-4 text-lg text-gray-700">
+                    WHEREAS, the LESSOR is the owner of THE LEASED PREMISES, a residential property situated at {selectedAgreement?.warehouseAddress};
+                </p>
+                <p className="mt-4 text-lg text-gray-700">
+                    WHEREAS, the LESSOR agrees to lease-out the property to the LESSEE and the LESSEE is willing to lease the same;
+                </p>
+            </div>
+
+            {/* Terms */}
+            <div className="mb-8">
+                <h3 className="text-2xl font-semibold text-gray-900 mb-4">Terms and Conditions</h3>
+                <div className=" p-6  ">
+                    {selectedAgreement.terms?.split('\n').map((term, index) => (
+                        <p key={index} className="text-lg text-gray-700 mb-3">{term}</p>
+                    ))}
+                </div>
+            </div>
+
+            {/* Additional Information */}
+            <div className="mb-8">
+                <h3 className="text-2xl font-semibold text-gray-900 mb-4">AGREEMENT CONTEXT:</h3>
+                <p className="text-lg text-gray-700">
+                    This rental agreement contract establishes the leasing terms between the LESSOR and LESSEE as outlined above. Both parties agree to comply with the terms.
+                </p>
+            </div>
+
+            {/* Signatures */}
+            <div className="flex justify-between pt-6 border-t-4 border-gray-300 mt-10 text-lg">
+                <div className="w-1/2 pr-8">
+                    <div className="border-b-4 border-gray-400 mb-4 h-16"></div>
+                    <p className="text-center text-lg text-gray-600">LESSOR SIGNATURE</p>
+                </div>
+                <div className="w-1/2 pl-8">
+                    <div className="border-b-4 border-gray-400 mb-4 h-16"></div>
+                    <p className="text-center text-lg text-gray-600">LESSEE SIGNATURE</p>
+                </div>
+            </div>
+
+            <div className="mt-6 text-center">
+                <p className="text-lg text-gray-600">Signed in the presence of:</p>
+                <div className="flex justify-between mt-6 text-lg">
+                    <div className="w-1/2">
+                        <p className="border-b-4 border-gray-400 mb-4 h-16"></p>
+                        <p className="text-center text-lg text-gray-600">Witness 1</p>
+                    </div>
+                    <div className="w-1/2">
+                        <p className="border-b-4 border-gray-400 mb-4 h-16"></p>
+                        <p className="text-center text-lg text-gray-600">Witness 2</p>
                     </div>
                 </div>
+            </div>
 
-                {/* Lessor and Lessee Names with TIN Numbers */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Lessor Name:</p>
-                        <p className="text-sm">{selectedAgreement?.lessorName}</p>
-                    </div>
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Lessor TIN:</p>
-                        <p className="text-sm">{selectedAgreement?.lessorTinNumber}</p> {/* TIN of the lessor */}
-                    </div>
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Lessee Name:</p>
-                        <p className="text-sm">{selectedAgreement?.lesseeName}</p>
-                    </div>
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Lessee TIN:</p>
-                        <p className="text-sm">{selectedAgreement?.lesseeTinNumber}</p> {/* TIN of the lessee */}
-                    </div>
-                </div>
+            {/* Acknowledgment */}
+            <div className="mt-8 text-right">
+                <p className="text-2xl font-semibold text-gray-900">ACKNOWLEDGMENT</p>
+                <p className="mt-4 text-lg text-gray-700">Republic of the Philippines)</p>
+                <p className="text-lg text-gray-700">______________________) S.S.</p>
 
-                <div className="border-b border-gray-400 mb-4"></div>
+                <div className="mt-4 text-left">
+    <p className="text-lg text-gray-700">BEFORE ME, personally appeared:</p>
+    <div className="space-y-2 mt-2">
+        <p className="text-lg text-gray-700">Name: {selectedAgreement?.lessorName}</p>
+        <p className="text-lg text-gray-700">CTC/ID Number: {selectedAgreement?.lessorTinNumber}</p>
+    </div>
+</div>
 
-                {/* Start Date, End Date, Amount, and Deposit */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Start Date:</p>
-                        <p className="text-sm">{new Date(selectedAgreement?.start_date).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">End Date:</p>
-                        <p className="text-sm">{new Date(selectedAgreement?.end_date).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Amount:</p>
-                        <p className="text-sm">₱{selectedAgreement?.rentAmount}</p>
-                    </div>
-                    <div className="flex justify-between">
-                        <p className="font-semibold text-sm">Deposit:</p>
-                        <p className="text-sm">₱{selectedAgreement?.depositAmount}</p>
-                    </div>
-                </div>
+                
+            </div>
 
-                <div className="border-b border-gray-400 mb-4"></div>
+            <p className="mt-4 text-lg text-gray-700">
+                    Known to me and to me known to be the same persons who executed the foregoing instrument and acknowledged to me that the same is their free and voluntary act and deed.
+                </p>
 
-                {/* Terms Section */}
-                <div className="mb-4 max-h-[300px] overflow-y-auto">
-                    <p className="font-semibold text-sm mb-2">Terms:</p>
-                    <div className="pl-4 text-sm text-justify">
-                        {/* Splitting terms by period or new line (depending on how they're stored) */}
-                        {selectedAgreement?.terms?.split('\n').map((term, index) => {
-                            const isNumberedTerm = /\d+\./.test(term); // Check if the line starts with a number and period
-                            return (
-                                <div key={index} className="mb-2">
-                                    <p className="text-sm">
-                                        {/* Make the numbered term bold */}
-                                        {isNumberedTerm ? <strong>{term}</strong> : term}
-                                    </p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="border-b border-gray-400 mb-4"></div>
-
-                {/* Signatures Section */}
-                <div className="flex justify-between mb-4">
-                    <div className="text-right">
-                        <hr className="mt-1 mb-1 border-gray-400" />
-                        <p className="text-sm">Lessee Signature</p>
-                    </div>
-                    <div className="text-right">
-                        <hr className="mt-1 mb-1 border-gray-400" />
-                        <p className="text-sm">Lessor Signature</p>
-                    </div>
-                </div>
+                <div className="text-gray-600 text-lg mt-6">
+                <p>This CONTRACT OF LEASE is made and executed at the City of ____________________, this day of _____________________, 20____, by and between:</p>
+            </div>
+            <div className="mt-4 text-center">
+                <p className="text-lg text-gray-700">This instrument consisting of ____ page/s, including the page with the signature of the parties.</p>
             </div>
         </div>
     </div>
 )}
+
+
 
 
                     {successMessage && (

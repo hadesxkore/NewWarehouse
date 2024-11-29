@@ -10,7 +10,7 @@ import  Panorama  from 'panolens';
 import * as PANOLENS from 'panolens';
 import { doc, updateDoc, deleteField, getFirestore, getDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiEye, HiOutlineRefresh, HiX, HiXCircle, HiRefresh ,
+import { HiOutlineX, HiCheck, HiMap , HiTrash, HiCheckCircle, HiUpload, HiDocumentText, HiOutlineStatusOnline, HiEye, HiOutlineRefresh, HiX, HiXCircle, HiRefresh ,
     HiOutlineDocumentText, HiOutlineSave, HiOutlineBan
  } from 'react-icons/hi'; // Import the HiTrash icon
 
@@ -79,13 +79,15 @@ function Dashboard() {
     const [isModalVisible, setIsModalVisible] = useState(false); // Renamed variable
     const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false);
 const [rejectionMessage, setRejectionMessage] = useState('');
+const [existingDocuments, setExistingDocuments] = useState({});
 
     // Inside your component
 const [searchText, setSearchText] = useState('');
 const [suggestions, setSuggestions] = useState([]);
 const [rejectionReasonModalVisible, setRejectionReasonModalVisible] = useState(false);
 const [currentRejectionReason, setCurrentRejectionReason] = useState(""); // Store the rejection reason
-
+const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+const [transactionStatus, setTransactionStatus] = useState("");
     const [rentedWarehouses, setRentedWarehouses] = useState([]);
     const [showRentedWarehousesModal, setShowRentedWarehousesModal] = useState(false);
     const [userName, setUserName] = useState('');
@@ -98,7 +100,9 @@ const currentDate = new Date().toLocaleDateString('en-US', {
 });
   // Define state for handling the documents modal and selected documents
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
-  
+  const [isPopupOpen, setIsPopupOpen] = useState(false); // To control popup visibility
+  const [popupMessage, setPopupMessage] = useState(''); // For the popup message/content
+
   const [selectedWarehouseDocuments, setSelectedWarehouseDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(null); // New state to track selected document
   const [showApprovalConfirmationModal, setShowApprovalConfirmationModal] = useState(false);
@@ -182,7 +186,8 @@ const [successModalVisible, setSuccessModalVisible] = useState(false); // For su
     const [selectedFile, setSelectedFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
-
+    const [isModalActive, setModalActive] = useState(false); // New variable name
+    const [statusMessage, setStatusMessage] = useState(''); // New variable name
     // Add these state variables and handlers to your Dashboard component
     const [isSubmitDocumentsModalOpen, setIsSubmitDocumentsModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -226,6 +231,23 @@ const [documents, setDocuments] = useState({
         maintenanceRecords: null,
     });
     
+    const handleOpenStatusModal = async () => {
+        try {
+            // Fetch the latest transaction status from Firestore
+            const warehouseRef = firestore.collection("rentedWarehouses").get();
+            const warehouses = (await warehouseRef).docs.map((doc) => doc.data());
+            setTransactionStatus(
+                warehouses.map((warehouse) => warehouse.transactionStatus).join(", ")
+            ); // Combine all statuses or customize as needed
+            setIsStatusModalVisible(true);
+        } catch (error) {
+            console.error("Error fetching transaction status:", error);
+        }
+    };
+    
+    const handleCloseStatusModal = () => {
+        setIsStatusModalVisible(false);
+    };
  
 // Function to check if documents are already uploaded and open the respective modal
 const openSubmitDocumentsModal = async (warehouse) => {
@@ -339,7 +361,9 @@ const openSubmitDocumentsModal = async (warehouse) => {
         const warehouseRef = firestore.collection('rentedWarehouses').doc(selectedWarehouse.warehouseId);
         await warehouseRef.update({ documents: documentUrls });
   
+        
         setSubmissionSuccessModalVisible(true); // Show success modal
+        setIsSubmitDocumentsModalOpen(false); 
       } catch (error) {
         console.error('Error submitting documents: ', error);
         alert('Failed to submit documents. Please try again.');
@@ -349,6 +373,15 @@ const openSubmitDocumentsModal = async (warehouse) => {
     }
   };
   
+  const handleShowTransactionStatus = (warehouse) => {
+    setStatusMessage(warehouse.transactionStatus);
+    setModalActive(true);
+  };
+
+  const handleCloseTransactionModal = () => {
+    setModalActive(false);
+    setStatusMessage('');
+  };
   
   const handleViewDocuments = async (warehouse) => {
     console.log("Warehouse Object:", warehouse);
@@ -441,6 +474,17 @@ const openSubmitDocumentsModal = async (warehouse) => {
     if (isLessor) {
         // Open the documents modal for the lessor
         setShowDocumentsModal(true);
+
+        // Update the transaction status in the warehouses collection
+        try {
+            await firestore.collection('rentedWarehouses').doc(warehouse.warehouseId).update({
+                transactionStatus: "Under Review: Lessee's documents is being evaluated by Lessor"  // Set the status to "Under Review"
+            });
+            console.log("Warehouse transaction status updated to 'Under Review'");
+        } catch (error) {
+            console.error("Error updating transaction status:", error);
+        }
+
     } else if (isLessee) {
         // Open the document status modal for the lessee
         setShowDocumentStatusModal(true);
@@ -448,6 +492,7 @@ const openSubmitDocumentsModal = async (warehouse) => {
         alert("You are not authorized to view the documents for this warehouse.");
     }
 };
+
 
 
 const handleResubmittedClick = (index) => {
@@ -498,6 +543,8 @@ const handleSaveRejectionReason = () => {
 };
 
 
+
+
 const handleSaveDocumentStatus = async () => {
     const warehouseId = selectedWarehouse?.warehouseId;
 
@@ -506,11 +553,16 @@ const handleSaveDocumentStatus = async () => {
         return;
     }
 
+    // Check if all documents have a status of 'approved'
+    const allDocumentsApproved = selectedWarehouseDocuments.every(doc => doc.status === 'approved');
+    console.log("All documents approved:", allDocumentsApproved);
+
     const updatedDocumentStatuses = selectedWarehouseDocuments.reduce((acc, doc) => {
         const fieldName = doc.name.replace(/\s+/g, '').toLowerCase();
 
         acc[`documents.${fieldName}Status`] = doc.status;
 
+        // Clear resubmission fields for approved documents
         if (doc.status === 'approved') {
             acc[`documents.birRegistrationResubmitted`] = deleteField();
             acc[`documents.letterOfIntentResubmitted`] = deleteField();
@@ -519,6 +571,7 @@ const handleSaveDocumentStatus = async () => {
             acc[`documents.governmentIssuedIdResubmitted`] = deleteField();
         }
 
+        // Include rejection reasons if present
         if (doc.rejectionReason) {
             acc[`documents.${fieldName}RejectionReason`] = doc.rejectionReason;
         }
@@ -526,7 +579,15 @@ const handleSaveDocumentStatus = async () => {
         return acc;
     }, {});
 
-    console.log("Updating document with:", updatedDocumentStatuses); // Log the structure for debugging
+    // Update the transactionStatus if all documents are approved
+    if (allDocumentsApproved) {
+        updatedDocumentStatuses.transactionStatus = "Status: Approved";
+    } else {
+        updatedDocumentStatuses.transactionStatus = "Under Review";
+    }
+
+    console.log("Updating document with:", updatedDocumentStatuses); // Debug log
+    console.log("Computed transactionStatus:", updatedDocumentStatuses.transactionStatus);
 
     try {
         const db = getFirestore(); // Get Firestore instance
@@ -542,7 +603,7 @@ const handleSaveDocumentStatus = async () => {
         await updateDoc(docRef, updatedDocumentStatuses); // Perform the update
 
         // Update local state after saving
-        setSelectedWarehouseDocuments(prevDocuments => 
+        setSelectedWarehouseDocuments(prevDocuments =>
             prevDocuments.map(doc => ({
                 ...doc,
                 status: doc.status // Ensure status is set
@@ -551,18 +612,23 @@ const handleSaveDocumentStatus = async () => {
 
         setIsStatusSaved(true); // Set the status as saved
 
-        // Show success modal instead of alert
-        setModalMessage('The documents have been successfully validated');
+        // Show success modal with appropriate message
+        setModalMessage(
+            allDocumentsApproved
+                ? 'All documents have been successfully approved, and the transaction status has been updated.'
+                : 'The documents have been successfully validated.'
+        );
+
         setIsModalOpen(true);
-        setShowDocumentsModal(false);
 
         // Refresh the document list after saving
-        handleViewDocuments(selectedWarehouse); // Refresh documents to get updated status
     } catch (error) {
         console.error("Error updating document:", error.message); // Log the error message
         alert("Failed to update document: " + error.message); // Display the error message
     }
 };
+
+
 
   // Function to handle document approval/rejection
   const handleDocumentApproval = (documentName, status) => {
@@ -1159,6 +1225,8 @@ const handleFullscreen = () => {
         
         setUploading(false);
     };
+
+
 {/* Function to handle file removal */}
 const handleFileRemove = (index) => {
     setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
@@ -1265,6 +1333,42 @@ const handleFileRemove = (index) => {
             setUploading(false);
         }
     };
+
+    useEffect(() => {
+        const fetchExistingDocuments = async () => {
+            try {
+                const userUid = auth.currentUser.uid;
+                const querySnapshot = await firestore.collection('warehouses')
+                    .where('userUid', '==', userUid)
+                    .get();
+
+                const documents = {};
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Add existing documents to the list
+                    [
+                        'identificationProof',
+                        'addressProof',
+                        'ownershipDocuments',
+                        'previousTenancyDetails',
+                        'businessPermit',
+                        'sanitaryPermit',
+                        'maintenanceRecords',
+                    ].forEach((field) => {
+                        if (data[field] && !documents[field]) {
+                            documents[field] = data[field]; // Use the first found document
+                        }
+                    });
+                });
+
+                setExistingDocuments(documents);
+            } catch (error) {
+                console.error('Error fetching existing documents:', error);
+            }
+        };
+
+        fetchExistingDocuments();
+    }, []);
 
     const handleShowDocuments = async () => {
         const userId = auth.currentUser.uid; // Get the current user's ID
@@ -1507,24 +1611,30 @@ const handleViewDocument = (fileUrl) => {
         setNewRentals(processingRentalsCount);
     }, [rentedWarehouses]);
 
+    const markAsRented = async (warehouseId) => {
+        setSelectedWarehouseId(warehouseId);
     
-// Function to handle marking a warehouse as rented
-const markAsRented = async (warehouseId) => {
-    setSelectedWarehouseId(warehouseId);
-
-    try {
-        const hasLeaseAgreement = await checkLeaseAgreement(warehouseId);
-
-        if (hasLeaseAgreement) {
-            setShowConfirmationModal(true); // Show confirmation modal if lease agreement exists
-        } else {
-            setShowErrorModal(true); // Show error modal if no lease agreement exists
+        try {
+            const hasLeaseAgreement = await checkLeaseAgreement(warehouseId);
+    
+            if (hasLeaseAgreement) {
+                setShowConfirmationModal(true); // Show confirmation modal if lease agreement exists
+                
+                // Update transaction status to "Status: Contract Signed" in Firestore
+                const warehouseRef = firestore.collection('rentedWarehouses').doc(warehouseId);
+                await warehouseRef.update({
+                    transactionStatus: 'Status: In Contract.'
+                });
+                console.log('Transaction status updated to "Status: Contract Signed"');
+            } else {
+                setShowErrorModal(true); // Show error modal if no lease agreement exists
+            }
+        } catch (error) {
+            console.error('Error marking warehouse as rented:', error);
+            setShowErrorModal(true); // Show error modal in case of any error
         }
-    } catch (error) {
-        console.error('Error marking warehouse as rented:', error);
-        setShowErrorModal(true); // Show error modal in case of any error
-    }
-};
+    };
+    
 
 const handleLeaseAgreement = async (warehouse) => {
     setSelectedWarehouse(warehouse);
@@ -1626,19 +1736,56 @@ const confirmMarkAsRented = async () => {
 
         const rentedWarehouseData = rentedWarehouseDoc.data();
         const ownerUid = rentedWarehouseData.ownerUid;
-        const warehouseId = rentedWarehouseData.warehouseId; // Make sure this field exists
+        const warehouseId = rentedWarehouseData.warehouseId; // Ensure this field exists
         const lesseeUserId = rentedWarehouseData.rentedBy?.userId; // Fetch lessee userId
 
         if (!lesseeUserId) {
             throw new Error('Lessee userId is undefined.');
         }
 
-        // Update the status of the rented warehouse to 'Rented'
+        // Update the rented warehouse's status to 'Rented'
         await rentedWarehouseRef.update({
             status: 'Rented'
         });
 
         console.log('Rented warehouse marked as rented successfully.');
+
+        // Now, delete the warehouses marked as 'Processing' or 'Rejected' for the same owner
+        const rentedWarehousesRef = firestore.collection('rentedWarehouses');
+
+        // Query for 'Processing' status
+        const processingQuerySnapshot = await rentedWarehousesRef
+            .where('ownerUid', '==', ownerUid)
+            .where('status', '==', 'Processing') // Check for Processing status
+            .get();
+
+        if (!processingQuerySnapshot.empty) {
+            console.log('Processing warehouses found:', processingQuerySnapshot.docs.map(doc => doc.data()));
+            // Delete warehouses with Processing status
+            processingQuerySnapshot.docs.forEach(async (doc) => {
+                await doc.ref.delete();
+                console.log(`Deleted warehouse with ID: ${doc.id} (Processing status)`);
+            });
+        } else {
+            console.log('No Processing warehouses found.');
+        }
+
+        // Query for 'Rejected' status
+        const rejectedQuerySnapshot = await rentedWarehousesRef
+            .where('ownerUid', '==', ownerUid)
+            .where('status', '==', 'Rejected') // Check for Rejected status
+            .get();
+
+        if (!rejectedQuerySnapshot.empty) {
+            console.log('Rejected warehouses found:', rejectedQuerySnapshot.docs.map(doc => doc.data()));
+            // Delete warehouses with Rejected status
+            rejectedQuerySnapshot.docs.forEach(async (doc) => {
+                await doc.ref.delete();
+                console.log(`Deleted warehouse with ID: ${doc.id} (Rejected status)`);
+            });
+        } else {
+            console.log('No Rejected warehouses found.');
+        }
 
         // Find the corresponding warehouse document using ownerUid
         const warehousesRef = firestore.collection('warehouses');
@@ -1653,7 +1800,7 @@ const confirmMarkAsRented = async () => {
 
         // Update the status of the warehouse to 'Rented', add lesseeUserId, and add warehouseId
         await warehouseDoc.ref.update({
-            rentStatus: 'Rented',
+            rentStatus: 'Rented', // Use rentStatus instead of status
             userId: lesseeUserId, // Add lessee's userId to the warehouse document
             warehouseId: selectedWarehouseId // Add the warehouseId to the warehouse document
         });
@@ -1668,14 +1815,43 @@ const confirmMarkAsRented = async () => {
 
         // Automatically close the success GIF after 1 second
         setTimeout(() => {
-            setShowSuccessGif(false);
-        }, 1700); // 1000 milliseconds = 1 second
-
+            setShowSuccessGif(false); // Hide the success GIF after 1 second
+            // Show the popup after the success GIF disappears
+            setIsPopupOpen(true); // Show the popup with the success message
+        }, 1700); // 1700 milliseconds = 1.7 seconds (to allow time for the success GIF to display)
+        
     } catch (error) {
         console.error('Error updating warehouse status:', error);
         // Handle error: Show an error message or log it
     }
 };
+
+const renderPopup = () => (
+    <div className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 ${isPopupOpen ? 'block' : 'hidden'}`}>
+        <div className="bg-white p-5 rounded-lg shadow-md max-w-md w-full text-center">
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+                <HiExclamationCircle className="text-blue-500 text-5xl" />
+            </div>
+
+            {/* Modal content */}
+            <p className="text-base text-gray-800 mb-4">
+                Pending warehouses with status{" "}
+                <span className="text-yellow-500 font-medium">"Processing"</span> and{" "}
+                <span className="text-red-500 font-medium">"Rejected"</span> will be deleted/rejected.
+            </p>
+
+            {/* Close Button */}
+            <button
+                onClick={() => setIsPopupOpen(false)}
+                className="px-5 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition duration-150"
+            >
+                Close
+            </button>
+        </div>
+    </div>
+);
+
 
 const handleCloseSuccessGif = () => {
     setShowSuccessGif(false);
@@ -1908,7 +2084,7 @@ return (
             <img src={rentIcon} alt="Rented Warehouse Icon" className="h-8 w-8" />
         </div>
        
-        <div className="ml-4 text-lg font-semibold">Rented Warehouses</div>
+        <div className="ml-4 text-lg font-semibold">Rent Warehouses</div>
       
     </div>
     <p className="bottom-2 left-4 text-m text-gray-500 text-end">For Lessee</p>
@@ -2126,38 +2302,63 @@ return (
     ))}
   </div>
 </div>
-
-   {/* File Uploads */}
 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-    {[
-        { id: "identificationProof", label: "ID/Valid ID" },
-        { id: "addressProof", label: "Address Proof" },
-        { id: "ownershipDocuments", label: "Ownership Docs" },
-        { id: "previousTenancyDetails", label: "Previous Tenancy Details" },
-        { id: "businessPermit", label: "Business Permit" },
-        { id: "sanitaryPermit", label: "Sanitary Permit" },
-        { id: "maintenanceRecords", label: "Maintenance Records" },
-    ].map((field) => (
-        <div key={field.id} className="bg-white shadow rounded-md p-2 transition-transform transform hover:scale-105">
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor={field.id}>{field.label}</label>
-            <div className="relative border border-gray-300 rounded-md overflow-hidden transition-shadow hover:shadow-md">
-                <input
-                    type="file"
-                    id={field.id}
-                    name={field.id}
-                    onChange={handleFileUpload}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                    required={field.id !== "previousTenancyDetails" && field.id !== "businessPermit" && field.id !== "maintenanceRecords"}
-                />
-                <div className="flex items-center justify-center h-10 bg-blue-500 hover:bg-blue-600 transition-colors rounded-md cursor-pointer">
-                    <span className="text-white">{fileNames[field.id] || "Choose File"}</span>
+            {[
+                { id: 'identificationProof', label: 'ID/Valid ID' },
+                { id: 'addressProof', label: 'Address Proof' },
+                { id: 'ownershipDocuments', label: 'Ownership Docs' },
+                { id: 'previousTenancyDetails', label: 'Previous Tenancy Details' },
+                { id: 'businessPermit', label: 'Business Permit' },
+                { id: 'sanitaryPermit', label: 'Sanitary Permit' },
+                { id: 'maintenanceRecords', label: 'Maintenance Records' },
+            ].map((field) => (
+                <div
+                    key={field.id}
+                    className="bg-white shadow rounded-md p-2 transition-transform transform hover:scale-105"
+                >
+                    <label
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                        htmlFor={field.id}
+                    >
+                        {field.label}
+                    </label>
+                    <div className="relative border border-gray-300 rounded-md overflow-hidden transition-shadow hover:shadow-md">
+                        {existingDocuments[field.id] ? (
+                            <div className="flex flex-col items-center justify-center h-10 bg-gray-100 text-gray-700 text-sm">
+                                Document Already Uploaded
+                            </div>
+                        ) : (
+                            <>
+                                <input
+                                    type="file"
+                                    id={field.id}
+                                    name={field.id}
+                                    onChange={handleFileUpload}
+                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                                    required={
+                                        field.id !== 'previousTenancyDetails' &&
+                                        field.id !== 'businessPermit' &&
+                                        field.id !== 'maintenanceRecords'
+                                    }
+                                />
+                                <div className="flex items-center justify-center h-10 bg-blue-500 hover:bg-blue-600 transition-colors rounded-md cursor-pointer">
+                                    <span className="text-white">
+                                        {fileNames[field.id] || 'Choose File'}
+                                    </span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                        {existingDocuments[field.id]
+                            ? `Document already exists`
+                            : fileNames[field.id]
+                            ? `File uploaded: ${fileNames[field.id]}`
+                            : 'No file uploaded'}
+                    </p>
                 </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{fileNames[field.id] ? `Uploaded: ${fileNames[field.id]}` : "No file uploaded"}</p>
-        </div>
-    ))}
+            ))}
 </div>
-
 
               {/* Buttons */}
 
@@ -2336,9 +2537,10 @@ return (
                         <span className="font-bold">Description:</span> {warehouse.description}
                     </p>
                     <p className="text-gray-600 mb-3 text-lg">
-                        <img src={priceTagIcon} alt="Price Tag Icon" className="inline-block h-4 mr-2" />
-                        <span className="font-bold">Price:</span> ₱{warehouse.price}
-                    </p>
+    <img src={priceTagIcon} alt="Price Tag Icon" className="inline-block h-4 mr-2" />
+    <span className="font-bold">Price:</span> ₱{warehouse.price ? Number(warehouse.price).toLocaleString() : '0'}
+</p>
+
                     <p className="text-lg">
                         Status:
                         {warehouse.status === 'pending' && <span className="status-text" style={{ color: 'orange' }}> Pending</span>}
@@ -2787,6 +2989,8 @@ return (
         </div>
     </div>
 )}
+
+
 {currentView === 'rented' && (
     <div className={`${showRentedWarehousesModal ? 'block' : 'hidden'}`}>
         <div className="container mx-auto px-4 mt-10">
@@ -2824,12 +3028,16 @@ return (
                             )}
 
                             <h3 className="text-xl font-semibold mb-4">{warehouse.name}</h3>
+
+                            
                             <div className="text-gray-700 mb-4">
                                 <p><strong>Address:</strong> {warehouse.address}</p>
                                 <p><strong>Description:</strong> {warehouse.description}</p>
                                 <p><strong>Owner:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
                             </div>
-                            <p className="text-gray-700 mb-4"><strong>Price:</strong> ₱{warehouse.price}</p>
+                            <p className="text-gray-700 mb-4">
+  <strong>Price:</strong> ₱{warehouse.price ? Number(warehouse.price).toLocaleString() : '0'}
+</p>
                             <p className="text-gray-700 mb-4">
                                 <strong>Status: </strong>
                                 <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>
@@ -2867,6 +3075,13 @@ return (
                                 Document Status
                             </button>
                             
+                             {/* View Status Button */}
+ <button
+            className="mt-4 ml-2 bg-yellow-600 text-white py-2 px-4 rounded hover:bg-yellow-500"
+            onClick={() => handleShowTransactionStatus(warehouse)}
+          >
+            View Status
+          </button>
                         </div>
                     ))}
                 </div>
@@ -2874,6 +3089,36 @@ return (
         </div>
     </div>
 )}
+
+{isModalActive && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="bg-white rounded-lg shadow-lg p-8 w-10/12 max-w-xl relative">
+      
+      {/* Icon and Title */}
+      <div className="flex flex-col items-center">
+        <HiOutlineStatusOnline className="text-blue-500 text-6xl mb-2" />
+        <h2 className="text-2xl  text-gray-800">Transaction Status</h2>
+      </div>
+
+    {/* Content Card */}
+    <div className="bg-gray-100 p-4 rounded-lg shadow-md mt-2">
+        <p className="text-lg text-gray-700 text-center font-bold">
+          {statusMessage || "No transactions have been made yet."}
+        </p>
+      </div>
+
+      {/* Close Button */}
+      <button
+        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition duration-200"
+        onClick={handleCloseTransactionModal}
+      >
+        ✖
+      </button>
+    </div>
+  </div>
+)}
+
+
 
 {showDocumentStatusModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
@@ -3401,9 +3646,10 @@ return (
 {currentView === 'rentals' && (
     <div className={`${showRentedWarehousesModal ? 'block' : 'hidden'}`}>
         <div className="container mx-auto px-4 mt-10">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold textUser">Your Rentals Warehouses</h2>
-            </div>
+        <div className="flex justify-between items-center mb-6">
+    <h2 className="text-3xl font-bold textUser">Your Rentals Warehouses</h2>
+  
+</div>
             {rentedWarehouses.length === 0 ? (
                 <div className="flex justify-center items-center h-64">
                     <div className="bg-gray-300 rounded-lg p-6 shadow-md">
@@ -3414,13 +3660,26 @@ return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {rentedWarehouses.map(warehouse => (
                         <div key={warehouse.warehouseId} className="bg-white rounded-lg shadow-md p-6">
-                            <h3 className="text-2xl font-semibold mb-4">{warehouse.name}</h3>
+           
+           <div className="flex justify-between items-center mb-4">
+    <h3 className="text-2xl font-semibold">{warehouse.name}</h3>
+    {/* View Status Button */}
+    <button
+        className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition duration-300"
+        onClick={() => handleOpenStatusModal(warehouse)}
+    >
+        View Status
+    </button>
+</div>
+
                             <div className="text-gray-700 mb-4 text-xl ">
                                 <p><strong>Address:</strong> {warehouse.address}</p>
                                 <p><strong>Description:</strong> {warehouse.description}</p>
                                 <p><strong>Lessor:</strong> {warehouse.ownerFirstName} {warehouse.ownerLastName}</p>
                             </div>
-                            <p className="text-gray-700 mb-4 text-xl"><strong>Price:</strong> ₱{warehouse.price}</p>
+                            <p className="text-gray-700 mb-4 text-xl">
+  <strong>Price:</strong> ₱{warehouse.price ? Number(warehouse.price).toLocaleString() : '0'}
+</p>
                             <p className="text-gray-700 mb-4 text-xl"><strong>Status:</strong> <span style={{ color: warehouse.status === 'Rented' ? 'green' : 'red' }}>{warehouse.status}</span></p>
                             <p className="text-gray-700 mb-4 text-xl"><strong>Lessee:</strong> {warehouse.rentedBy?.firstName} {warehouse.rentedBy?.lastName}</p>
                             <p className="text-gray-800 font-semibold mb-2 text-xl">Amenities:</p>
@@ -3438,11 +3697,11 @@ return (
                                 ))}
                             </div>
                             <div className="flex space-x-2 mt-4">
-                                <button
-                                    className="bg-green-500 text-white font-semibold py-2 px-12 rounded hover:bg-green-600 transition duration-300"
-                                    onClick={() => markAsRented(warehouse.warehouseId)}
+                            <button
+                                    className="bg-purple-500 text-white font-semibold py-2 px-12 rounded hover:bg-purple-600 transition duration-300"
+                                    onClick={() => handleViewDocuments(warehouse)}
                                 >
-                                    Approve
+                                    Review Documents
                                 </button>
                                 <button
                                     className="bg-blue-500 text-white font-semibold py-2 px-12 rounded hover:bg-blue-600 transition duration-300"
@@ -3451,24 +3710,57 @@ return (
                                     Lease Agreement
                                 </button>
                                 <button
+                                    className="bg-green-500 text-white font-semibold py-2 px-12 rounded hover:bg-green-600 transition duration-300"
+                                    onClick={() => markAsRented(warehouse.warehouseId)}
+                                >
+                                    Approve
+                                </button>
+                            
+                                <button
                                     className="bg-red-500 text-white font-semibold py-2 px-12 rounded hover:bg-red-600 transition duration-300"
                                     onClick={() => handleReject(warehouse)}
                                 >
                                     Reject
                                 </button>
                                 {/* View Documents Button */}
-                                <button
-                                    className="bg-purple-500 text-white font-semibold py-2 px-12 rounded hover:bg-purple-600 transition duration-300"
-                                    onClick={() => handleViewDocuments(warehouse)}
-                                >
-                                    Review Documents
-                                </button>
+                              
                             </div>
                         </div>
                     ))}
                 </div>
             )}
         </div>
+
+        {isStatusModalVisible && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+<div className="bg-white rounded-lg shadow-lg p-8 w-10/12 max-w-xl relative">
+{/* Icon and Title */}
+            <div className="flex flex-col items-center">
+                <HiOutlineStatusOnline className="text-blue-500 text-6xl mb-2" />
+                <h2 className="text-2xl font-bold text-gray-800">Transaction Status</h2>
+            </div>
+            
+            {/* Content */}
+            <p className="text-lg text-gray-700 mt-6 text-center">
+                {transactionStatus || "No transactions have been made yet."}
+            </p>
+            
+
+
+            {/* Close Button */}
+            <button
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition duration-200"
+                onClick={handleCloseStatusModal}
+            >
+                ✖
+            </button>
+        </div>
+    </div>
+)}
+
+
+
+        {renderPopup()} {/* Popup modal rendering */}
 
    {/* Validation Modal */}
    {showValidationModal && (
@@ -3726,12 +4018,16 @@ return (
 
             {/* Close Button */}
             <div className="mt-6">
-                <button
-                    className="bg-green-600 text-white px-10 py-2 rounded-2xl hover:bg-green-500 transition duration-300"
-                    onClick={() => setIsModalOpen(false)}
-                >
-                    OK
-                </button>
+            <button
+    className="bg-green-600 text-white px-10 py-2 rounded-2xl hover:bg-green-500 transition duration-300"
+    onClick={() => {
+        setShowDocumentsModal(false);
+        setIsModalOpen(false);
+    }}
+>
+    OK
+</button>
+
             </div>
         </div>
     </div>
@@ -3773,7 +4069,7 @@ return (
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
                         <h2 className="text-xl font-bold mb-4">Lease Agreement Details</h2>
                         <p><strong>Warehouse Name:</strong> {selectedWarehouse.name}</p>
-                        <p><strong>Price:</strong> ₱{selectedWarehouse.price}</p>
+                        <p><strong>Price:</strong> ₱{selectedWarehouse.price ? Number(selectedWarehouse.price).toLocaleString() : '0'}</p>
                         <p><strong>Lessor:</strong> {selectedWarehouse.ownerFirstName} {selectedWarehouse.ownerLastName}</p>
                         <p><strong>Lessee:</strong> {selectedWarehouse.rentedBy?.firstName} {selectedWarehouse.rentedBy?.lastName}</p>
                         <div className="flex justify-end mt-4">

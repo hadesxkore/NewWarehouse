@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, renderMatches } from 'react-router-dom';
 import { db, auth } from '../firebase';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -22,9 +22,9 @@ function CreateAgreement() {
         lessee_id: initialFormData.rentedBy ? initialFormData.rentedBy.id : '',
         start_date: '',
         end_date: '',
-        rentAmount: initialFormData.price || '', // Initialize with existing data
+        rentAmount: initialFormData.price || 0, // Default to 0 if price is not available
         rentFrequency: 'monthly',
-        depositAmount: '',
+        depositAmount: initialFormData.depositAmount || 0, // Default to 0 if depositAmount is not available
         terms: '',
         lessorTinNumber: initialFormData.owner ? initialFormData.owner.tinNumber : '',  // Access the tinNumber from the owner object
         lesseeTinNumber: initialFormData.rentedBy ? initialFormData.rentedBy.tinNumber : ''  // Assuming you have this in the rentedBy data
@@ -116,96 +116,106 @@ const handleChange = (e) => {
         return months < 6;
     };
 
-
-   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const currentUser = auth.currentUser;
+    
+            if (!currentUser) {
+                console.error('User is not authenticated.');
+                return;
+            }
+    
             // Check if the current user has uploaded warehouses
             const warehousesSnapshot = await db.collection('warehouses')
                 .where('userUid', '==', currentUser.uid)
                 .get();
-            
+    
             if (warehousesSnapshot.empty) {
-                // Display an error message if the user hasn't uploaded any warehouses
                 setError('Rental agreements can only be created by lessors who have uploaded warehouses.');
                 setShowErrorModal(true); // Show modal
                 return;
             }
-             // Validate the duration
-             if (isDurationLessThanSixMonths()) {
+    
+            // Validate the duration
+            if (isDurationLessThanSixMonths()) {
                 setError('The rental agreement must be at least 6 months long.');
                 setShowErrorModal(true);
                 return;
             }
-
-            // Continue with agreement creation logic
-            const { start_date, end_date, rentFrequency, rentAmount, depositAmount } = formData;
+    
+            const { start_date, end_date, rentFrequency, rentAmount, depositAmount, warehouseId } = formData;
             const startDate = new Date(start_date);
             const endDate = new Date(end_date);
             const daysDiff = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)); // Calculate difference in days
-
-            if (daysDiff < 30) { // If duration is less than 30 days
+    
+            if (daysDiff < 30) {
                 setError('Agreement duration must be at least 30 days.');
                 setShowErrorModal(true); // Show modal
                 return;
             }
-
-            if (rentFrequency === 'yearly' && daysDiff < 365) { // If rent frequency is yearly and duration is less than 365 days (1 year)
+    
+            if (rentFrequency === 'yearly' && daysDiff < 365) {
                 setError('Yearly rent period requires a duration of at least 365 days (1 year).');
                 setShowErrorModal(true); // Show modal
                 return;
             }
-
+    
             if (parseInt(depositAmount) > parseInt(rentAmount)) {
                 setError('Deposit amount cannot be greater than rent amount.');
                 setShowErrorModal(true); // Show modal
                 return;
             }
-
+    
+            // Terms
             const terms = `
                 Terms and Conditions
                 1. Description of the Premises
                 This Rental Agreement has been signed by the parties for the purpose of leasing the property at the address stated above. The leased property under this Agreement can only be used for residential purposes.
-
+    
                 2. Term of the Agreement
                 The commencement date of the Rental Agreement is ${start_date} and the expiration date is ${end_date}.
-
+    
                 This contract expires automatically at the end of this period. The parties may decide to continue the lease under the same conditions, or they may sign a new agreement.
-
+    
                 3. Rent and Payment Method
-                The monthly rental fee under this Agreement is ${rentAmount}. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
-
+                The monthly rental fee under this Agreement is ${formData.rentAmount.toLocaleString()}. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
+    
                 4. Security Deposit
                 Security deposit of ${depositAmount ? depositAmount.toLocaleString() : ''} shall be paid to Lessor at the date of signature of this Agreement. After the expiry of the Agreement, the deposit shall be refunded after the inspection to be made on the leased property. Damages and losses incurred on the real estate and the fixtures to be listed below are set off from the deposit.
-
+    
                 5. Fixtures and Maintenance
                 Lessee shall maintain leased property and the fixtures in good order, repair, and appearance, and repair parts of leased property including without limitation, all interior and exterior, replacements to the roof, foundations, exterior walls, building systems, HVAC systems, parking areas, sidewalks, water, sewer and gas connections, and pipes.
             `;
-
-            if (currentUser) {
-                const agreementData = {
-                    ...formData,
-                    terms: editableTerms, // Update terms with editableTerms
-                    userId: currentUser.uid,
-                };
-                await db.collection('rentalAgreement').add(agreementData);
-                navigate('/rental-agreements');
-            } else {
-                console.error('User is not authenticated.');
-            }
-        } else {
-            console.error('User is not authenticated.');
+    
+            // Add rental agreement to Firestore
+            const agreementData = {
+                ...formData,
+                terms: editableTerms, // Update terms with editableTerms
+                userId: currentUser.uid,
+            };
+    
+            const agreementRef = await db.collection('rentalAgreement').add(agreementData);
+    
+            // Use warehouseId from the created rental agreement to update rentedWarehouses
+            const warehouseIdInAgreement = agreementData.warehouseId;
+    
+            const rentedWarehouseRef = db.collection('rentedWarehouses').doc(warehouseIdInAgreement);
+            await rentedWarehouseRef.update({
+                transactionStatus: "Status: Ready for Meet-Up",
+            });
+    
+            console.log(`Rental agreement created with ID: ${agreementRef.id}`);
+            console.log(`Transaction status updated to 'Status: Ready for Meet-Up'.`);
+    
+            navigate('/rental-agreements');
+        } catch (error) {
+            console.error('Error creating rental agreement: ', error);
+            setError('Error creating rental agreement. Please try again later.');
+            setShowErrorModal(true); // Show modal
         }
-    } catch (error) {
-        console.error('Error creating rental agreement: ', error);
-        setError('Error creating rental agreement. Please try again later.');
-        setShowErrorModal(true); // Show modal
-    }
-};
-
-
+    };
+    
 useEffect(() => {
     const checkUserWarehouses = async () => {
         try {
@@ -239,7 +249,7 @@ useEffect(() => {
         This contract expires automatically at the end of this period. The parties may decide to continue the lease under the same conditions, or they may sign a new agreement.
 
         3. Rent and Payment Method
-        The monthly rental fee under this Agreement is ${rentAmount}. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
+        The monthly rental fee under this Agreement is ${rentAmount ? rentAmount.toLocaleString() : ''}. This amount shall be paid in cash at the latest on the fifth of each month, and through the bank.
 
         4. Security Deposit
         Security deposit of ${depositAmount ? depositAmount.toLocaleString() : ''} shall be paid to Lessor at the date of signature of this Agreement. After the expiry of the Agreement, the deposit shall be refunded after the inspection to be made on the leased property. Damages and losses incurred on the real estate and the fixtures to be listed below are set off from the deposit.
@@ -422,31 +432,44 @@ const handleSaveTerms = async () => {
                             </div>
                         </div>
                         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                            <div className="flex flex-col">
-                                <label className="text-gray-700 mb-2">Rent Amount</label>
-                                <input
-                                    type="number"
-                                    name="rentAmount"
-                                    value={formData.rentAmount}
-                                    onChange={handleChange}
-                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                            </div>
-                            <div className="flex flex-col">
-                                <label className="text-gray-700 mb-2">Deposit Amount</label>
-                                <input
-                                    type="number"
-                                    name="depositAmount"
-                                    value={formData.depositAmount}
-                                    onChange={handleChange}
-                                    className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
-                                    placeholder="(50%)"
+                        <div className="flex flex-col">
+    <label className="text-gray-700 mb-2">Rent Amount</label>
+    <input
+        type="text" // Change type to 'text' to allow formatting with commas
+        name="rentAmount"
+        value={formData.rentAmount !== undefined ? formData.rentAmount.toLocaleString() : ''} // Format rentAmount with commas
+        onChange={(e) => {
+            // Remove any non-numeric characters and update the state with the raw value
+            const numericValue = e.target.value.replace(/[^0-9]/g, ''); 
+            setFormData({
+                ...formData,
+                rentAmount: numericValue ? parseInt(numericValue) : 0, // Set rentAmount as a number
+            });
+        }}
+        className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+        required
+    />
+</div>
+<div className="flex flex-col">
+    <label className="text-gray-700 mb-2">Deposit Amount</label>
+    <input
+        type="text" // Change type to 'text' for custom formatting
+        name="depositAmount"
+        value={formData.depositAmount !== undefined ? formData.depositAmount.toLocaleString() : ''} // Format the depositAmount with commas
+        onChange={(e) => {
+            // Remove any non-numeric characters and update the state with the raw value
+            const numericValue = e.target.value.replace(/[^0-9]/g, ''); 
+            setFormData({
+                ...formData,
+                depositAmount: numericValue ? parseInt(numericValue) : 0, // Set depositAmount as a number
+            });
+        }}
+        placeholder="(50%)"
+        className="border border-gray-300 rounded-md px-6 py-4 focus:outline-none focus:border-blue-500"
+        required
+    />
+</div>
 
-                                    required
-                                    
-                                />
-                            </div>
                         </div>
   {/* Terms section */}
   {hasUploadedWarehouses && (

@@ -73,8 +73,9 @@ const WarehouseCard = ({ warehouse }) => {
                     ))}
                 </div>
                 <p className="text-gray-700 mb-4">
-                    <span className="font-bold">Price:</span> ₱{warehouse.price}
-                </p>
+    <span className="font-bold">Price:</span> ₱{Number(warehouse.price).toLocaleString() || 'Invalid price'}
+</p>
+
                 <p className="text-gray-700 mb-4">
                     <span className="font-bold">Category:</span> {warehouse.category}
                 </p>
